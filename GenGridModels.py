@@ -10,6 +10,7 @@ from random import gauss
 import numpy
 import numexpr as ne
 import scipy
+import pandas as pd
 from scipy.integrate import romb
 from scipy.integrate import simps
 from scipy.integrate import trapz
@@ -29,7 +30,7 @@ import threading
 import Lecture_module
 
 
-#Launch example for one node: nohup taskset -c 0 python GenGridModels.py 800 400 n00 &
+#Launch example for one node: python GenGridModels.py 800 400 n00 OR nohup taskset -c 0 python GenGridModels.py 800 400 n00 &
 
 
 #The script is in Dropbox, but we want to go to the right directory
@@ -227,7 +228,7 @@ for pp in range(0,number_of_filters):
 
 print( star_optimal_mass[:index_threshold].sum(), star_optimal_mass[index_threshold:].sum() )
 #print 'Flag 3'
-input()
+#input()
 
 
 
@@ -251,7 +252,7 @@ for jj in range(0,number_models): # range(number_models):
  mass_stoch_half[jj]=star_half_stochastic_mass_HighPart.sum() + all_cluster_mass_LowPart
  #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
- '''
+ 
  #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  #PART PHOTOMETRY
 
@@ -283,13 +284,13 @@ for jj in range(0,number_models): # range(number_models):
   data_integrated_clusters[jj,2+pp] = -2.5*np.log10( np.sum(photometry_flux[:,pp]) + photometry_flux_LowPart[pp] )
 
  #print jj, star_half_stochastic_mass.sum()#, age, data_integrated_clusters[jj,2],most_massive_alive_star, present_day_cluster_mass
- print jj, mass_stoch_half[jj]#, age, data_integrated_clusters[jj,2],most_massive_alive_star, present_day_cluster_mass
+ print( jj, mass_stoch_half[jj] )#, age, data_integrated_clusters[jj,2],most_massive_alive_star, present_day_cluster_mass
  #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- '''
- print( jj )
+ 
+ #print( jj )
 print( mass_stoch_half.mean() )
 
-input()
+#input()
 
 
 
@@ -314,7 +315,11 @@ data_integrated_clusters_Notextincted[:,3] = 0.                                 
 data_integrated_clusters_Notextincted[:,4] = Z                                          #Metallicity
 data_integrated_clusters_Notextincted[:,-1]= data_integrated_clusters[:,-1]             #PRESENT-DAY Mass
 
+print(data_integrated_clusters_Notextincted.shape)
+
+
 path_grid_out = 'Clusters_built/'
+'''
 #path_grid_out = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grid_FRS_allZ_Kroupa_generated/GRID_NPZ/{0}/'.format(Z_indice)
 #path_grid_out = '/mnt/storage/philippe/Grid_FRS_allZ_Kroupa_generated/GRID_NPZ/{0}/'.format(Z_indice)
 outfile_NoEbv = open(path_grid_out+'Clusters_t{0}_M{1}_Z{2}'.format(age_indice,mass_indice,Z_indice),'w')  #If we need all the filters
@@ -323,23 +328,19 @@ sss = '# ID        Age       Mass      Ext       Z         FUV       NUV       U
 print(sss, end="", file=outfile_NoEbv)
 np.savetxt(outfile_NoEbv,data_integrated_clusters_Notextincted, fmt='%9.5f') #
 outfile_NoEbv.close()
+'''
+
+
+
+column_names = ['ID','Age','Mass','Ext','Z','FUV','NUV','U','B','V','R','I','J','H','K','F275W','F336W','F475W','F814W','F110W','F160W','u_CFHT','g_CFHT','r_CFHT','i_CFHT','z_CFHT','u_SDSS','g_SDSS','r_SDSS','i_SDSS','z_SDSS','J_2MASS','H_2MASS','Ks_2MASS','a_BATC','b_BATC','c_BATC','d_BATC','e_BATC','f_BATC','g_BATC','h_BATC','i_BATC','j_BATC','k_BATC','m_BATC','n_BATC','o_BATC','p_BATC','t_BATC','IRAC36','IRAC45','IRAC58','IRAC80','mip24','mip70','mip160','Mass_present']
+
+df = pd.DataFrame(data_integrated_clusters_Notextincted,columns=column_names)
+print(df.head(5))
+
+df.to_csv(path_grid_out+'Clusters_t{0}_M{1}_Z{2}.csv'.format(age_indice,mass_indice,Z_indice))
 
 
 print("--- %s seconds ---" % (time.time() - start_time))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
