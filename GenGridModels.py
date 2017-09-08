@@ -139,9 +139,9 @@ Mecl = 10**logMass_desired[0]
 #mass_array_indice = np.linspace(200,550,71).astype(np.int)
 
 #if choice_pa_or_w==1: path = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/SC_Parameters_20/Creation_of_cluster_models_HRS_GRIDs/Cluster_OS_grid_PK07/'
-if choice_pa_or_w==1: path = '/media/philippe/a36c9bac-04fd-4046-8af2-2038962a2127/philippe/Documents/PhD/Discrete_models_comparaison_jtao/SC_Parameters_20/Creation_of_cluster_models_HRS_GRIDs/Cluster_OS_grid_PK07/'
+if choice_pa_or_w==1: path = 'Cluster_OS_grid_PK07/'
 #if choice_pa_or_w==1: path = '/opt/Cluster_OS_grid_PK07/' #NOW IN SSD, 7 APRIL 2016
-if choice_pa_or_w==2: path = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/SC_Parameters_20/Creation_of_cluster_models_HRS_GRIDs/Cluster_OS_grid_W13/'
+if choice_pa_or_w==2: path = 'Cluster_OS_grid_W13/'
 
 #aaaa,mmmm,zzzz=Lecture_module.indices_to_aa_mm_zz(700, 400, 'm04')
 #name_output =  path+'cluster_M{0}.txt'.format(mass_array_indice[mmmm-1]) #load from the txt files
@@ -314,7 +314,7 @@ data_integrated_clusters_Notextincted[:,3] = 0.                                 
 data_integrated_clusters_Notextincted[:,4] = Z                                          #Metallicity
 data_integrated_clusters_Notextincted[:,-1]= data_integrated_clusters[:,-1]             #PRESENT-DAY Mass
 
-path_grid_out = '/home/philippe/Desktop/'
+path_grid_out = 'Clusters_built/'
 #path_grid_out = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grid_FRS_allZ_Kroupa_generated/GRID_NPZ/{0}/'.format(Z_indice)
 #path_grid_out = '/mnt/storage/philippe/Grid_FRS_allZ_Kroupa_generated/GRID_NPZ/{0}/'.format(Z_indice)
 outfile_NoEbv = open(path_grid_out+'Clusters_t{0}_M{1}_Z{2}'.format(age_indice,mass_indice,Z_indice),'w')  #If we need all the filters

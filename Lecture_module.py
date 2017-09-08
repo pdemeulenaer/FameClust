@@ -1647,7 +1647,7 @@ def Read_isochrones(choice_metallicity):
         F275W,F336W,F475W,F814W,F110W,F160W=[],[],[],[],[],[]
         #isochrone_name = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Girardi2010_isochrones_preparation/{0}/{0}_AllBands_HST_CB_step_logt01_Girardi2010_CMD25L.dat'.format(choice_metallicity) 
         #isochrone_name = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Girardi2010_isochrones_preparation/{0}/{0}_AllBands_HST_CB_step_logt01_Girardi2010_CMD25L_withACS.dat'.format(choice_metallicity) 
-        isochrone_name = '/media/philippe/a36c9bac-04fd-4046-8af2-2038962a2127/philippe/Documents/PhD/Discrete_models_comparaison_jtao/SC_Parameters_20/Girardi2010_isochrones_preparation/{0}/{0}_AllBands_HST_CB_step_logt01_Girardi2010_CMD25L_withACS.dat'.format(choice_metallicity)
+        isochrone_name = 'Girardi2010_isochrones_preparation/{0}/{0}_AllBands_HST_CB_step_logt01_Girardi2010_CMD25L_withACS.dat'.format(choice_metallicity)
         infile_isochrone = open(isochrone_name,'r')
         for line in infile_isochrone:
           ll = line.split()
