@@ -87,6 +87,7 @@
  character(len=300) :: file_out_cluster, file_out_cluster_f90, file_name_grid,file_Test_1000_random_clusters
  character(len=300) :: file_observed_clusters,file_name_nodes_bin,forma, file_out_cluster_models
  character(len=300) :: file_out_cluster_node,file_out_cluster_histo
+ character(len=300) :: Grid_path,Grid_path1,Grid_path2
  CHARACTER(len=3) :: Z_indice_selected
  write(*,*)
  CALL system('date')
@@ -142,6 +143,10 @@
  !READ(10,*) choice_sigma		!Automatic sigma (1) input file sigma (2)
  !READ(10,*)
  READ(10,'(a)') file_out_cluster  	!This format '(a)' because of the slashes in the name of directories
+ READ(10,*)
+ write(*,*) file_out_cluster		!Path where to store the output files
+ READ(10,'(a)') Grid_path1
+ READ(10,'(a)') Grid_path2
  write(*,*) file_out_cluster		!Path where to store the output files
  close(10)
 
@@ -358,6 +363,7 @@
  !# ----------------------------------------------
  !CALL chdir('/home/philippe/Desktop/Discrete_models_comparaison_jtao/SC_Parameters_20/Source/')
  CALL chdir('/home/philippe/Desktop/FameClust/Source/')
+ Grid_path = trim(Grid_path1) // trim(Z_indice_selected) // '/' 
  Grid_completed(:,:) = 0.
  CALL system('date')
  WRITE(*,*) '' 
@@ -368,56 +374,19 @@
     Ext = 1
     call age_mass_Z_December(aa,mm,zz,Ext,age,mass,Z,Ebv,age_indice,mass_indice,Z_indice,Ebv_indice)
 
-    !gCMD Grid!
-    !file_name_nodes_bin = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grid_gCMD014_71_81_Z'
-    !file_name_nodes_bin=trim(file_name_nodes_bin)//trim(Z_indice)//'_AllB_HST_20pc_untruncated_iso_binary/'
-    !file_name_nodes_bin=trim(file_name_nodes_bin)//trim(Z_indice)//'_AllB_HST_20pc_untruncated_iso_Kr01NCB_binary/'
 
-    !FRS Grid!
-    !file_name_nodes_bin = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grids_with_ACS/Grid_FRS_Z'   !HDD
-    !file_name_nodes_bin = trim(file_name_nodes_bin) // trim(Z_indice) // '_Kroupa_1000models_per_node_with_ACS_binary/'
-    !file_name_nodes_bin = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grids_with_ACS/'
-    file_name_nodes_bin = '/media/philippe/a36c9bac-04fd-4046-8af2-2038962a2127/philippe/Documents/'&
-      &//'PhD/Discrete_models_comparaison_jtao/Grids_with_ACS/'
-    file_name_nodes_bin = trim(file_name_nodes_bin)//'/Grid_FRS_1000models_per_node_OldGenerationCode/'
-    !file_name_nodes_bin = trim(file_name_nodes_bin)//'/Grid_FRS_1000models_per_node_NewGenerationCode/'
-    file_name_nodes_bin = trim(file_name_nodes_bin)//'GRID_files/Grid_FRS_generated_from_npz/BINARY_files/' // trim(Z_indice) //'/' !Same grid as above, just different place
+    !file_name_nodes_bin = '/media/philippe/a36c9bac-04fd-4046-8af2-2038962a2127/philippe/Documents/'&
+    !  &//'PhD/Discrete_models_comparaison_jtao/Grids_with_ACS/'
+    !file_name_nodes_bin = trim(file_name_nodes_bin)//'/Grid_FRS_1000models_per_node_OldGenerationCode/'
+    !!file_name_nodes_bin = trim(file_name_nodes_bin)//'/Grid_FRS_1000models_per_node_NewGenerationCode/'
+    !file_name_nodes_bin = trim(file_name_nodes_bin)//'GRID_files/Grid_FRS_generated_from_npz/BINARY_files/' // trim(Z_indice) //'/' !Same grid as above, just different place
+    !file_name_nodes_bin = trim(file_name_nodes_bin) // 't' // trim(age_indice) // '_M' //&
+    !	& trim(mass_indice) // '_Z' // trim(Z_indice)
 
-    !file_name_nodes_bin = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grids_with_ACS/PEGASE_FRS_grids/Grid_FRS_Z'   !HDD
-    !file_name_nodes_bin = trim(file_name_nodes_bin) // trim(Z_indice) // '_Kroupa_1000models_per_node_with_ACS_PEGASE_binary/'
-
-    !file_name_nodes_bin = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grid_Z'              !TRADITIONAL
-    !file_name_nodes_bin = trim(file_name_nodes_bin) // trim(Z_indice) // '_test2_binary/'
-
-    !file_name_nodes_bin = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grid_Z'
-    !file_name_nodes_bin = trim(file_name_nodes_bin) //adjustl(trim(Z_indice))//'_from_npzGMM_binary/'
-
-    !file_name_nodes_bin = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grids_with_ACS/'
-    !file_name_nodes_bin = trim(file_name_nodes_bin) //'Grid_FRS_generated_not_from_npz/Grid_FRS_Z'
-    !file_name_nodes_bin = trim(file_name_nodes_bin) //adjustl(trim(Z_indice))//'_Kroupa_1000models_per_node_with_ACS_binary/'
-
-
-
-    !HRS Grid!
-    !file_name_nodes_bin = '/mnt/storage/philippe/Grid_HRS_Z'
-    !file_name_nodes_bin = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grid_HRS_Z'
-    !file_name_nodes_bin = '/opt/Grid_HRS_Z'
-    !file_name_nodes_bin = trim(file_name_nodes_bin) // trim(Z_indice) // '_ExpFactor6_Kroupa_binary/'
-    !file_name_nodes_bin = trim(file_name_nodes_bin) // trim(Z_indice) // '_ExpFactor6_Weidner_corrected_binary/'
-    !file_name_nodes_bin = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grid_HRS_Z'   !HDD
-    !file_name_nodes_bin = trim(file_name_nodes_bin) // trim(Z_indice) // '_ExpFactor6_Weidner_correctedTEST_binary/'
-    !file_name_nodes_bin = trim(file_name_nodes_bin) // trim(Z_indice) // '_ExpFactor6_Weidner_corrected_interpolated_binary/'
-    !file_name_nodes_bin = trim(file_name_nodes_bin) // trim(Z_indice) // '_ExpFactor6_Weidner_corrected_with_ACS_binary/'
-    !file_name_nodes_bin = '/opt/Grid_HRS_Z'   !SDD
-    !file_name_nodes_bin = trim(file_name_nodes_bin) // trim(Z_indice) // '_ExpFactor6_Weidner_corrected_binary/'
-
-
-    !SSP grid!!
-    !file_name_nodes_bin = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grid_SSP_CMD25/Grid_SSP_Z'
-    !file_name_nodes_bin = trim(file_name_nodes_bin) // trim(Z_indice) // '_nonoise_binary/'
-
-    file_name_nodes_bin = trim(file_name_nodes_bin) // 't' // trim(age_indice) // '_M' //&
+    file_name_nodes_bin = trim(Grid_path) // 't' // trim(age_indice) // '_M' //&
 	& trim(mass_indice) // '_Z' // trim(Z_indice)
+
+
     call Lecture_UBVRI_ugriz_GRID_Jan2013(file_name_nodes_bin,GRID_READ) 
     do ff=1,number_filters 
      Grid_completed(ii:ii+999,4+ff) = GRID_READ(:,filters_selected(ff))
@@ -437,6 +406,9 @@
  WRITE(*,*) ' The grid has been loaded correctly, from: ', file_name_nodes_bin 
  WRITE(*,*) '' 
  CALL system('date')
+
+
+
 
 
 

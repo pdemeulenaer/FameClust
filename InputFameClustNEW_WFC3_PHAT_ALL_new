@@ -23,8 +23,8 @@ PHAT_ALL_catalog_FameClust_format
 # Path of the output directory: #/home/philippe/Desktop/Discrete_models_comparaison_jtao/SC_Parameters_20/results_real_clusters/Clusters_M31/M31_PHAT_project_ALL/ #/media/philippe/a36c9bac-04fd-4046-8af2-2038962a2127/philippe/Documents/PhD/Discrete_models_comparaison_jtao/SC_Parameters_20/results_real_clusters/Clusters_M31/M31_PHAT_project_ALL/
 /home/philippe/Desktop/FameClust/M31_PHAT_project_ALL/
 # Path and name of the grid of models:
-/opt/Grids_with_ACS/Grid_FRS_Z 
-_Kroupa_1000models_per_node_with_ACS_binary/
+/media/philippe/a36c9bac-04fd-4046-8af2-2038962a2127/philippe/Documents/PhD/Discrete_models_comparaison_jtao/Grids_with_ACS/Grid_FRS_1000models_per_node_OldGenerationCode/GRID_files/Grid_FRS_generated_from_npz/BINARY_files/
+aaaaa
 # Number of age nodes and of mass nodes:
 71 101
 # Number of models per node:

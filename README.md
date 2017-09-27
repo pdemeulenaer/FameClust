@@ -43,4 +43,6 @@ where:
 - 1 and 10 are the first and last clusters analysed from the list (sometimes no need to analyse them all)
 - n00 is the metallicity of the grid used, here solar [-2.2=m22,...,-0.2=m02, then solar=n00, then +0.2=p02, step of 0.2]
 
+The InputFameClustNEW_WFC3_PHAT_ALL_new contains the path of the cluster data to analyse, the model grid, and others. It is important to adapt these paths to your system to make the code work. The grids of models for different metallicities can be given on request (write to me, pdemeulenaer@gmail.com)
+
 
