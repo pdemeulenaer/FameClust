@@ -1,0 +1,411 @@
+
+#Script which follows Fortran run, and defines 1D probabilities
+
+#Execution: time python FameClust_results_1D.py InputFameClustNEW_UBVRI_Z01900_M400 1 10 n00
+
+import numpy as np
+import numexpr as ne
+import scipy
+import os
+import math
+import time
+import random
+from random import gauss
+import pylab
+from pylab import *
+import sys
+import Lecture_module  # (Module located in /home/philippe/Desktop/Discrete_models_comparaison_jtao)
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.mlab as mlab
+from matplotlib.colors import LogNorm
+import mpl_toolkits.axisartist as axisartist
+
+
+#------------------------------------------------------------------------------------------------
+
+def Filtering_of_very_low_probable_extinctions(logt_box,logm_box,Ebv_box,weights,zz):
+ #Fortran program outputs age/mass nodes with different possibilities for the extinction. Some are very low probable.
+ #In this function, for each age/mass node, we filter the solutions for which the probability is less than 
+ #28% the one of the most probable extinction.
+ for aa in range(1,72):
+  for mm in range(1,62): 
+   age, mass, Z, age_indice, mass_indice, Z_indice = Lecture_module.age_mass_Z_December2011(aa,mm,zz) 
+   age_indice_int = int(age_indice)
+   mass_indice_int= int(mass_indice)
+   mask = ne.evaluate('(logt_box==age_indice_int) & (logm_box==mass_indice_int)')
+   index=np.where(mask)
+   if len(index[0])>0:
+    max_proba = weights[index].max()
+    for kk in range(0,len(index[0])):
+     if weights[index[0][kk]]<0.28*max_proba: weights[index[0][kk]] = 0.
+     #if age_indice_int==980: print weights[index[0][kk]],0.28*max_proba
+ mask_weight = ne.evaluate('weights>0')
+ #print len(mask_weight)
+ #filtered_index = np.where(mask_weight)
+ #print filtered_index[0][:50]
+ return logt_box[mask_weight], logm_box[mask_weight], Ebv_box[mask_weight], weights[mask_weight]
+
+
+def Mass_rounding(Age_grid,Mass_grid):
+ #The masses of the cluster models in the grids are not exactly the ones desired (small differences in the building)
+ #Here I need to have exact masses, so I round them.
+ #print Mass_grid[1000900:1001000]
+ Age_grid_rounded = np.zeros((4331000,), dtype=np.int)
+ Mass_grid_rounded = np.zeros((4331000,), dtype=np.int)
+ for aa in range(1,72):
+  for mm in range(1,62):
+   age, mass, Z, age_indice, mass_indice, Z_indice = Lecture_module.age_mass_Z_December2011(aa,mm,zz)
+   Mass_grid_rounded[0+(mm-1)*1000+(aa-1)*61000:1000+(mm-1)*1000+(aa-1)*61000] = int(mass_indice) #log10(mass)
+  Age_grid_rounded[0+(aa-1)*61000:61000+(aa-1)*61000] = int(age_indice)
+ return Age_grid_rounded,Mass_grid_rounded
+
+
+def Error_bars(age_centers,age_histo,age_1D):
+ #Age error bar (34% left and 34% right)
+ hist_1D_all = 0.				#to have the integral of the histogram (only sum of bars)
+ for bb in range(0,len(age_histo)):		
+  hist_1D_all = hist_1D_all + age_histo[bb]		
+ sum34pc_left = 0.				
+ for bb in range(0,len(age_centers)):		
+  sum34pc_left = sum34pc_left + age_histo[bb]
+  if sum34pc_left >= hist_1D_all*0.1585: break
+ age_1D_left_value = min(age_centers[bb],age_1D) #+ 0.05
+ sigma_left_age = abs(age_1D - age_1D_left_value)
+ sum34pc_right = 0.					#to have the integral of the histogram (only sum of bars)
+ for bb in range(0,len(age_centers)):		
+  sum34pc_right = sum34pc_right + age_histo[bb]
+  if sum34pc_right >= hist_1D_all*0.8415: break
+ age_1D_right_value = max(age_centers[bb],age_1D) #+ 0.05
+ sigma_right_age = abs(age_1D - age_1D_right_value)
+ return age_1D_left_value,age_1D_right_value #,sum34pc_left,sum34pc_right
+
+#------------------------------------------------------------------------------------------------
+
+Cores_number = ne.detect_number_of_cores()
+ne.set_num_threads(Cores_number)
+#print Cores_number
+#raw_input()
+
+# -------------------------
+# Loading of the input file (should be the same as for Fortran run)
+# -------------------------
+print
+print 80*'-'
+print
+print 50*'-'
+print 'Loading of InputFile'
+print 50*'-'
+print
+
+InputFile_Name = sys.argv[1] # The name of input file is given during execution of the script
+number_begin = int(sys.argv[2])
+number_end = int(sys.argv[3])
+Z_selected = sys.argv[4]
+
+Z_indice_selected = Z_selected
+Z,zz = Lecture_module.Zindex_to_Z_and_zz(Z_indice_selected)
+InputFile = open('/home/philippe/Desktop/Discrete_models_comparaison_jtao/SC_Parameters_20/'+InputFile_Name).readlines()
+my_list = []
+for line in InputFile:
+    item = str.split(line)
+    if item[0][0] != '#':
+     my_list.append(item[0])
+
+number_filters = int(my_list[0])
+print 'Number of filters selected:                 ', number_filters
+filters_selected_index = np.arange(number_filters) 	#integer array containing the indexes of the selected filters 
+for ii in range(0,number_filters):
+ filters_selected_index[ii] = int(my_list[ii+1])
+print 'Indexes of filters selected:               ', filters_selected_index
+Distance_modulus_host_galaxy = int(my_list[number_filters+1])
+print 'Distance modulus of the host galaxy:        ', Distance_modulus_host_galaxy
+app_or_abs = int(my_list[number_filters+2])
+print 'Apparent mags [1], Absolute mags [2]:       ', app_or_abs
+file_observed_clusters = my_list[number_filters+3]
+print 'Input file of the observed clusters:        '
+print '    ',file_observed_clusters
+number_cluster_observed = int(my_list[number_filters+4])
+print 'Number of observed clusters:                ',  number_cluster_observed	#[obsolete]
+choice_extinction = int(my_list[number_filters+5])
+print 'Cluster(s) extincted [1], not extincted [2]:', choice_extinction
+choice_extinction_law = int(my_list[number_filters+6])
+print 'Extinction law of MW [1], of LMC [2]:       ', choice_extinction_law
+path_file_out_cluster = my_list[number_filters+7]
+print 'Path of output files for derived parameters:' 
+print '    ',path_file_out_cluster
+print
+print 50*'-'
+print 'InputFile loaded'
+print 50*'-'
+print
+#raw_input()
+
+
+# -----------------------------------------------------------------------------------------
+#Loading of the observations
+# -----------------------------------------------------------------------------------------
+print
+print 50*'-'
+print 'Loading of the observation'
+print 50*'-'
+print
+#file: file_observed_clusters
+#print path_file_out_cluster+file_observed_clusters
+data_input = np.genfromtxt(path_file_out_cluster+file_observed_clusters, comments='#')
+M1_input = data_input[:,filters_selected_index+4]
+print 'M1: ', M1_input
+#print 'M1[0:number_filters]: ', M1[0:number_filters]
+del data_input
+print 50*'-'
+print 'Observation loaded'
+print 50*'-'
+print
+#raw_input()
+
+
+# -----------------------------------------------------------------------------------------
+#Loading of the A_lambda (extinction parameters) for the filters selected in the input file
+# -----------------------------------------------------------------------------------------
+print
+print 50*'-'
+print 'Loading of the A_lambda (extinction parameters)'
+print 50*'-'
+print
+# lambda, lambda_f_MW, lambda_f_LMC, index of filter [1-->52]
+filters_A_lambda = np.genfromtxt('Filters_information.dat',comments='#')
+if choice_extinction_law == 1:	#MW
+ A_lambda_filters_selected = filters_A_lambda[filters_selected_index-1,1]
+ Rv = 3.1
+if choice_extinction_law == 2:	#LMC
+ A_lambda_filters_selected = filters_A_lambda[filters_selected_index-1,2]
+ Rv = 3.4
+print A_lambda_filters_selected
+print
+print 50*'-'
+print 'A_lambda loaded'
+print 50*'-'
+print
+del filters_A_lambda
+#raw_input()
+
+
+# ----------------------------------------------
+# Loading of the grid of models (from .npy file)
+# ----------------------------------------------
+#Z_indice = 'n00' #Here, make a simple test to see if there is a file for the metallicity Z=... (loop on 13 Z)
+#zz=24
+if Z_selected != 'all':
+ Z_indice = Z_selected
+ Z,zz = Lecture_module.Zindex_to_Z_and_zz(Z_indice)
+ #Loading of the grid(s) needed 
+ grid = np.load('/home/philippe/Desktop/Discrete_models_comparaison_jtao/Transforming_grid_in_npy_files/Grid_HRS_Z{0}_ExpFactor6_Kroupa.npy'.format(Z_indice))
+ Age_grid = grid[:,0][np.newaxis].T
+ Mass_grid = grid[:,1][np.newaxis].T
+
+ #Rounding of the masses of models (for selection)
+ #print Mass_grid[2000900:2001000]
+ Age_grid_rounded,Mass_grid_rounded = Mass_rounding(Age_grid,Mass_grid)
+ #print Mass_grid_rounded[2000900:2001000]
+ #mask = ne.evaluate('(Age_grid_rounded==680) & (Mass_grid_rounded==315)')
+ #index = np.where(mask)
+
+if Z_selected == 'all':
+ #Z_indice = 'all'
+ for jj in range(0,13):	#Loop on the 3 output metallicities
+  if jj == 0:  zz, Z_indice = 26,'03000' # Zn00
+  if jj == 1:  zz, Z_indice = 24,'01900' # Zn00 
+  if jj == 2:  zz, Z_indice = 22,'01300' # Zm02
+  if jj == 3:  zz, Z_indice = 20,'00800' # Zm04
+  if jj == 4:  zz, Z_indice = 18,'00500' # Zm06
+  if jj == 5:  zz, Z_indice = 16,'00300' # Zm08
+  if jj == 6:  zz, Z_indice = 14,'00190' # Zm10
+  if jj == 7:  zz, Z_indice = 12,'00130' # Zm12
+  if jj == 8:  zz, Z_indice = 10,'00080' # Zm14
+  if jj == 9:  zz, Z_indice =  8,'00050' # Zm16
+  if jj == 10: zz, Z_indice =  6,'00030' # Zm18
+  if jj == 11: zz, Z_indice =  4,'00019' # Zm20
+  if jj == 12: zz, Z_indice =  2,'00300' # Zm22
+
+ #Loading of the grid(s) needed 
+ if jj==0: 
+  grid = np.load('/home/philippe/Desktop/Discrete_models_comparaison_jtao/Transforming_grid_in_npy_files/Grid_HRS_Z{0}_ExpFactor6_Kroupa.npy'.format(Z_indice))
+  Age_grid = grid[:,0][np.newaxis].T
+  Mass_grid = grid[:,1][np.newaxis].T
+ if jj>0:
+  grid_add = np.load('/home/philippe/Desktop/Discrete_models_comparaison_jtao/Transforming_grid_in_npy_files/Grid_HRS_Z{0}_ExpFactor6_Kroupa.npy'.format(Z_indice))
+  grid = np.concatenate((grid,grid_add), axis=0)
+
+
+ #Rounding of the masses of models (for selection)
+ #print Mass_grid[2000900:2001000]
+ Age_grid_rounded,Mass_grid_rounded = Mass_rounding(Age_grid,Mass_grid)
+ #print Mass_grid_rounded[2000900:2001000]
+ #mask = ne.evaluate('(Age_grid_rounded==680) & (Mass_grid_rounded==315)')
+ #index = np.where(mask)
+
+
+
+
+
+
+
+sigma_magnitude = 0.05
+sigma_magnitude_square_inverse = 1./sigma_magnitude**2
+solution = np.zeros((number_end,4))
+
+
+#Loop on all observed clusters
+for ii in range(number_begin,number_end+1):
+ M1 = M1_input[ii-1]
+ print M1
+
+ #First task: for all metallicities, filter the solutions with very low probable extinctions, and put all the nodes in one array
+ data_models = np.genfromtxt(path_file_out_cluster+'Cluster_{0}_node_Z{1}_V101.dat'.format(str(ii),Z_indice),comments='#')
+ logt_box=data_models[:,0]#/100.
+ logm_box=data_models[:,1]#/100.
+ Ebv_box=(data_models[:,2]-1.)/50.
+ weights=data_models[:,3]
+ index_max_age_3D = np.argmax(weights)
+
+
+ logt_box_filtered, logm_box_filtered, Ebv_box_filtered, weights_filtered = Filtering_of_very_low_probable_extinctions(logt_box,logm_box,Ebv_box,weights,zz)
+ #print len(logt_box_filtered)
+ #print logt_box_filtered[-10:]
+
+ #sys.exit()
+ #raw_input()
+
+ #Second task: open all the node files, and put the models in a huge array containing the age, mass, extinction, Z, filters of each model.
+ #Ideally, i should open the grids before, and then take the models of the desired node.
+ models_selected = np.zeros((len(logt_box_filtered)*1000,4+number_filters+1)) #Array creation
+ M0 = np.zeros((len(logt_box_filtered)*1000,number_filters)) #Array creation
+ M0_prime = np.zeros((len(logt_box_filtered)*1000,number_filters)) #Array creation
+ for kk in range(0,len(logt_box_filtered)): #len(logt_box_filtered)):
+  models_selected[0+kk*1000:1000+kk*1000,0] = logt_box_filtered[kk]
+  models_selected[0+kk*1000:1000+kk*1000,1] = logm_box_filtered[kk]
+  models_selected[0+kk*1000:1000+kk*1000,2] = Ebv_box_filtered[kk]
+  models_selected[0+kk*1000:1000+kk*1000,3] = Z #weights_filtered[kk]
+  age_desired = logt_box_filtered[kk] #int(round(logt_box_filtered[kk]*100))#int(round(6.8*100))# logt_box_filtered[kk]
+  mass_desired = logm_box_filtered[kk] #int(round(logm_box_filtered[kk]*100)) #int(round(3.15*100)) #logm_box_filtered[kk]
+  mask = ne.evaluate('(Age_grid_rounded==age_desired) & (Mass_grid_rounded==mass_desired)')
+  index = np.where(mask)
+  #print len(index[0])
+  #print age_desired
+  models_selected[0+kk*1000:1000+kk*1000,4:4+number_filters] = grid[index[0],filters_selected_index[0]+1:filters_selected_index[-1]+2]
+  M0[0+kk*1000:1000+kk*1000,0:number_filters] = grid[index[0],filters_selected_index[0]+1:filters_selected_index[-1]+2]
+
+ #print models_selected[10000,:]
+ 
+
+ #Third task: redden all the models with the extinction associated
+ #M2 = ne.evaluate("M1 + A_lambda_filters_selected * Rv*Ebv_box_filtered")
+ for ff in range(0,number_filters):
+  #models_selected[:,4+ff] = models_selected[:,4+ff] + A_lambda_filters_selected[ff] * Rv*models_selected[:,2]
+  M0_prime[:,ff] = M0[:,ff] + A_lambda_filters_selected[ff] * Rv*models_selected[:,2]
+ #print models_selected[10000,:],M0_prime[10000,:]
+
+ #sys.exit()
+ #Fourth task: compute the gaussian weight for all models, based on the distance to the observation. 
+ #So i need to compute the n-dimensional distance of each point to the observation.
+ d_direct_square = ne.evaluate("(M1-M0_prime)*(M1-M0_prime)").sum(axis=1)
+ #gaussian_weights = np.exp(-0.5*(d_direct_square[:]*sigma_magnitude_square_inverse))
+ models_selected[:,4+number_filters] = np.exp(-0.5*(d_direct_square[:]*sigma_magnitude_square_inverse))
+
+
+ #Lasts adjustments
+ models_selected[:,0:2] = models_selected[:,0:2]/100.
+ models_selected[:,4:4+number_filters] = M0_prime[:]
+
+
+ #Fifth task: the 1D histograms
+ # ------------------------------------
+ # Building the probabilitieS 1D		#I could also build the 3D!!!
+ # ------------------------------------
+ fig = plt.figure(1, figsize=(15,6))
+
+ #AGE--------------------------------------------------------------------------------------------------
+ ax_age = fig.add_subplot(141)	
+ age_histo, age_edges = np.histogram(models_selected[:,0], bins=71, range=[6.575,10.125], normed=False, weights=models_selected[:,4+number_filters], density=None)
+ index_max_age = np.argmax(age_histo)
+ age_centers = (age_edges[:-1]+age_edges[1:])/2
+ age_1D = age_centers[index_max_age] 	
+ width_age = (age_edges[1]-age_edges[0])
+ ax_age.bar(age_centers, age_histo, align = 'center', width = width_age)
+ ax_age.set_xlim(6.575,10.125)
+ #Age error bar (34% left and 34% right)
+ age_1D_left_value,age_1D_right_value = Error_bars(age_centers,age_histo,age_1D)
+ sigma_left_age = abs(age_1D - age_1D_left_value)
+ sigma_right_age = abs(age_1D - age_1D_right_value)
+ l_age_left = plt.axvline(x=age_1D_left_value,linewidth=2, color='g')
+ l_age = plt.axvline(x=age_1D,linewidth=3, color='r')
+ l_age_right = plt.axvline(x=age_1D_right_value,linewidth=2, color='g')
+ xlabel(r'log($t$/yr)')
+ #AGE--------------------------------------------------------------------------------------------------
+
+
+ #MASS-------------------------------------------------------------------------------------------------
+ ax_mass = fig.add_subplot(142)
+ mass_histo, mass_edges = np.histogram(models_selected[:,1], bins=81, range=[1.975,6.025], normed=False, weights=models_selected[:,4+number_filters], density=None)
+ index_max_mass = np.argmax(mass_histo)
+ mass_centers = (mass_edges[:-1]+mass_edges[1:])/2
+ mass_1D = mass_centers[index_max_mass] 	
+ width_mass = (mass_edges[1]-mass_edges[0])
+ ax_mass.bar(mass_centers, mass_histo, align = 'center', width = width_mass)
+ ax_mass.set_xlim(1.975,6.025)
+ #mass error bar (34% left and 34% right)
+ mass_1D_left_value,mass_1D_right_value = Error_bars(mass_centers,mass_histo,mass_1D)
+ sigma_left_mass = abs(mass_1D - mass_1D_left_value)
+ sigma_right_mass = abs(mass_1D - mass_1D_right_value)
+ l_mass_left = plt.axvline(x=mass_1D_left_value,linewidth=2, color='g')
+ l_mass = plt.axvline(x=mass_1D,linewidth=3, color='r')
+ l_mass_right = plt.axvline(x=mass_1D_right_value,linewidth=2, color='g') 
+ xlabel(r'log($M$/${\rm M}_{\odot}$)')
+ #MASS-------------------------------------------------------------------------------------------------
+
+
+ #E(B-V)-----------------------------------------------------------------------------------------------
+ ax_Ebv = fig.add_subplot(143)
+ Ebv_histo, Ebv_edges = np.histogram(models_selected[:,2], bins=101, range=[-0.01,2.01], normed=False, weights=models_selected[:,4+number_filters], density=None)
+ index_max_Ebv = np.argmax(Ebv_histo)
+ Ebv_centers = (Ebv_edges[:-1]+Ebv_edges[1:])/2
+ Ebv_1D = Ebv_centers[index_max_Ebv] 	
+ width_Ebv = (Ebv_edges[1]-Ebv_edges[0])
+ ax_Ebv.bar(Ebv_centers, Ebv_histo, align = 'center', width = width_Ebv)
+ ax_Ebv.set_xlim(-0.01,1.01)
+ #Ebv error bar (34% left and 34% right)
+ Ebv_1D_left_value,Ebv_1D_right_value = Error_bars(Ebv_centers,Ebv_histo,Ebv_1D)
+ sigma_left_Ebv = abs(Ebv_1D - Ebv_1D_left_value)
+ sigma_right_Ebv = abs(Ebv_1D - Ebv_1D_right_value)
+ l_Ebv_left = plt.axvline(x=Ebv_1D_left_value,linewidth=2, color='g')
+ l_Ebv = plt.axvline(x=Ebv_1D,linewidth=3, color='r')
+ l_Ebv_right = plt.axvline(x=Ebv_1D_right_value,linewidth=2, color='g')
+ xlabel(r'$E(B-V)$')
+ #E(B-V)-----------------------------------------------------------------------------------------------
+
+
+ #Z----------------------------------------------------------------------------------------------------
+ ax_Z = fig.add_subplot(144)
+ Z_histo, Z_edges = np.histogram(models_selected[:,3], bins=13, range=[-2.3,0.3], normed=False, weights=models_selected[:,4+number_filters], density=None)
+ index_max_Z = np.argmax(Z_histo)
+ Z_centers = (Z_edges[:-1]+Z_edges[1:])/2
+ Z_1D = Z_centers[index_max_Z] 	
+ width_Z = (Z_edges[1]-Z_edges[0])
+ ax_Z.bar(Z_centers, Z_histo, align = 'center', width = width_Z)
+ ax_Z.set_xlim(-0.01,2.01)
+ #Z----------------------------------------------------------------------------------------------------
+
+ plt.show()
+
+ solution[ii-1,0:4] = age_1D, mass_1D, Ebv_1D, Z_1D
+ print 'Solution 1D: ', solution[ii-1,0:4], sigma_left_age, sigma_right_age
+ print 'Solution 3D: ', logt_box[index_max_age_3D],logm_box[index_max_age_3D],Ebv_box[index_max_age_3D]
+ print 
+
+ del M0,M0_prime,models_selected,logt_box_filtered, logm_box_filtered, Ebv_box_filtered, weights_filtered, d_direct_square
+
+
+print solution[0:20,:]
+np.savetxt("/home/philippe/Desktop/Clusters_Solutions.txt",solution)
+
+

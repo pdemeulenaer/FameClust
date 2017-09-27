@@ -1,0 +1,107 @@
+ Program main
+ use Lecture_module_fortran
+ implicit none
+
+ !Compilation: gfortran -O3 -march=native -ffast-math -funroll-loops  Module_lecture.f90 reading_GMM_ascii_nodes.f90 -o reading
+
+ integer, parameter :: components_number = 10
+ real(4), dimension(1:components_number,1:29) :: means
+ real(4), dimension(1:components_number,1:29,1:29) :: covariances
+ real(4), dimension(1:components_number) :: weights
+ real(4), dimension(1:components_number,1:29) :: means_bin
+ real(4), dimension(1:components_number,1:29,1:29) :: covariances_bin
+ real(4), dimension(1:components_number) :: weights_bin
+ character(len=300) :: path_GMM_ascii_file,path_GMM_bin_file
+ real(4) :: age, mass, Z, Ebv
+ real(4) :: zero
+ integer :: hh,ii,jj,a,m,zz,Ext,Rv
+ character(len=50) :: age_indice,mass_indice,Z_indice,Ebv_indice
+
+
+
+ !*************************************
+ write(*,*)'Test 1: Reading ascii grid'
+ !*************************************
+ path_GMM_ascii_file = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/'
+ path_GMM_ascii_file = trim(path_GMM_ascii_file) // 'Grid_FRS_allZ_Kroupa_generated/NPZ_in_ASCII_files/n00/'
+ write(*,*) path_GMM_ascii_file
+
+ age_indice = '660'
+ mass_indice = '200'
+ Z_indice = 'n00'
+ zz=24
+ Ext=1
+
+ call Lecture_GMM_ASCII_GRID_March2016(path_GMM_ascii_file,means,covariances,weights,&
+	& age_indice,mass_indice,Z_indice,components_number) 
+
+ write(*,*) means(1,:)
+ write(*,*)
+ write(*,*) covariances(1,1,:)
+ write(*,*) covariances(1,29,:)
+ write(*,*)
+ write(*,*) covariances(2,1,:)
+ write(*,*) covariances(2,29,:)
+ write(*,*)
+ write(*,*) covariances(10,1,:)
+ write(*,*) covariances(10,29,:)
+ write(*,*) 
+ write(*,*) weights(:)
+ write(*,*) 
+ read(*,*)
+
+
+
+ !****************************************************
+ write(*,*)'Test 2: Comparing bin grid and ascii grid'
+ !****************************************************
+ path_GMM_bin_file = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/'
+ path_GMM_bin_file = trim(path_GMM_bin_file) // 'Grid_FRS_allZ_Kroupa_generated/NPZ_in_BIN_files/n00/'
+ write(*,*) path_GMM_bin_file
+
+ call Lecture_GMM_BIN_GRID_March2016(path_GMM_bin_file,means_bin,covariances_bin,weights_bin,&
+	& age_indice,mass_indice,Z_indice,components_number) 
+
+ !I compute the differences between the binary grid and the ascii one. It should be 0.
+ write(*,*) means_bin(1,:) - means(1,:)
+ write(*,*)
+ write(*,*) covariances_bin(1,1,:)  - covariances(1,1,:)
+ write(*,*) covariances_bin(1,29,:) - covariances(1,29,:)
+ write(*,*)
+ write(*,*) covariances_bin(2,1,:)  - covariances(2,1,:)
+ write(*,*) covariances_bin(2,29,:) - covariances(2,29,:)
+ write(*,*)
+ write(*,*) covariances_bin(10,1,:)  - covariances(10,1,:)
+ write(*,*) covariances_bin(10,29,:) - covariances(10,29,:)
+ write(*,*) 
+ write(*,*) weights_bin(:) - weights(:)
+ write(*,*) 
+ read(*,*)
+
+
+
+ !*****************************************
+ write(*,*)'Test 3: reading the whole grid'
+ !*****************************************
+
+ Do a = 1,71 !71		!Loop on the age. 
+  Do m = 1, 101  !101		!Loop on the mass. 
+
+    call age_mass_Z_December(a,m,zz,Ext,age,mass,Z,Ebv,age_indice,mass_indice,Z_indice,Ebv_indice)
+
+    !READING ASCII GRID
+    call Lecture_GMM_ASCII_GRID_March2016(path_GMM_ascii_file,means,covariances,weights,&
+    	& age_indice,mass_indice,Z_indice,components_number)
+
+    !READING BINARY GRID
+    !call Lecture_GMM_BIN_GRID_March2016(path_GMM_bin_file,means,covariances,weights,&
+    ! 	& age_indice,mass_indice,Z_indice,components_number)
+
+  Enddo		!End of loop on the mass
+  write(*,*) 'Age ', age, ' performed'
+ Enddo    	!End of loop on the age
+
+ write(*,*)'Reading of the grid is done'
+
+
+ end program

@@ -1,0 +1,300 @@
+
+#This script is the first analytical test of FameClust method using GMM nodes
+
+import numpy as np
+import numexpr as ne
+import scipy
+import os
+import math
+import time
+import random
+from random import gauss
+import pylab
+from pylab import *
+import sys
+import Lecture_module  # (Module located in /home/philippe/Desktop/Discrete_models_comparaison_jtao)
+import matplotlib.pyplot as plt
+from sklearn import mixture 
+from matplotlib.colors import LogNorm
+from numba import jit
+import f90_module_f2py  #module fortran imported throught F2PY
+
+#Simple 1 core use: time python GMM_Grids_npz2nodes.py N (N being the age input)
+
+def reddening(M1,A_lambda_filters_selected,Rv,Ebv):
+ M2 = ne.evaluate("M1 + A_lambda_filters_selected * Rv*Ebv")
+ return M2
+
+'''
+#@jit
+def probability_building_OLD(components_number,dummy,normalization_here,x_minus_mu,Grid_nodes_covariances_INV):
+ for mm in range(10,60): #1,72):   
+  print mm
+  for aa in range(1,72):
+   age, mass, Z, age_indice, mass_indice, Z_indice = Lecture_module.age_mass_Z_December2011(aa,mm,zz)
+
+   for Ext in range(1,2):
+	  Ebv = (Ext-1)*0.01
+	  proba_component=np.zeros(components_number)
+	  for ii in range(0,components_number): 
+	   dummy[Ext-1,aa-1,mm-1,ii,:] = np.dot(x_minus_mu[Ext-1,aa-1,mm-1,ii,:].T, Grid_nodes_covariances_INV[aa-1,mm-1,ii,:,:])
+	   proba_component[ii] = normalization_here[aa-1,mm-1,ii]*np.exp(-0.5*np.dot(dummy[Ext-1,aa-1,mm-1,ii,:],x_minus_mu[Ext-1,aa-1,mm-1,ii,:])) 
+	   proba_node_3D[aa-1,mm-1,Ext-1] = proba_node_3D[aa-1,mm-1,Ext-1] + proba_component[ii]
+          #proba_node_3D[aa-1,mm-1,Ext-1] = proba_component.sum()
+ return proba_node_3D
+'''
+
+'''
+def probability_building(components_number,dummy,normalization_here,x_minus_mu,Grid_nodes_covariances_INV):
+ for mm in range(1,72): #1,72):   
+  print mm
+  for aa in range(1,72):
+
+   for Ext in range(1,2):
+	  Ebv = (Ext-1)*0.01
+	  proba_component=np.zeros(components_number)
+	  for ii in range(0,components_number): 
+	   #dummy[Ext-1,aa-1,mm-1,ii,:] = np.dot(x_minus_mu[Ext-1,aa-1,mm-1,ii,:].T, Grid_nodes_covariances_INV[aa-1,mm-1,ii,:,:])
+
+	   f90_module_f2py.mod.blas_xx = Grid_nodes_covariances_INV[aa-1,mm-1,ii,:,:]
+	   f90_module_f2py.mod.blas_yy = x_minus_mu[Ext-1,aa-1,mm-1,ii,:]
+	   f90_module_f2py.mod.blas_zz = np.zeros(5) #initial allocation
+	   f90_module_f2py.mod.blas_multiplication()
+	   #dummy[Ext-1,aa-1,mm-1,ii,:] = f90_module_f2py.mod.blas_zz
+	   #proba_component[ii] = normalization_here[aa-1,mm-1,ii]*np.exp(-0.5*np.dot(dummy[Ext-1,aa-1,mm-1,ii,:],x_minus_mu[Ext-1,aa-1,mm-1,ii,:])) 
+	   proba_component[ii] = normalization_here[aa-1,mm-1,ii]*np.exp(-0.5*f90_module_f2py.mod.resultat)
+	   proba_node_3D[aa-1,mm-1,Ext-1] = proba_node_3D[aa-1,mm-1,Ext-1] + proba_component[ii]
+          #proba_node_3D[aa-1,mm-1,Ext-1] = proba_component.sum()
+ return proba_node_3D
+'''
+
+'''
+def probability_building(components_number,dummy,normalization_here,x_minus_mu,Grid_nodes_covariances_INV):
+ f90_module_f2py.mod.comp_number = components_number
+ f90_module_f2py.mod.cov_inv_all = Grid_nodes_covariances_INV 		#[:,:,:,:,:]  Grid_nodes_covariances_INV = np.zeros((71,71,10,5,5))
+ f90_module_f2py.mod.x_mu_all    = x_minus_mu 				#x_minus_mu = np.zeros((101,71,71,10,5))
+ f90_module_f2py.mod.normalization_here_all = normalization_here	#normalization_here = np.zeros((71,71,10))
+ f90_module_f2py.mod.proba_node_3D_all = np.zeros((71,71,101))		#proba_node_3D = np.zeros((71,71,101))
+ for mm in range(1,72): 
+  print mm
+  for aa in range(1,72):
+
+   for Ext in range(1,2):
+	  Ebv = (Ext-1)*0.01
+	  proba_component=np.zeros(components_number)
+	  for ii in range(0,components_number): 
+
+	   f90_module_f2py.mod.cov_inv = Grid_nodes_covariances_INV[aa-1,mm-1,ii,:,:]
+	   f90_module_f2py.mod.x_mu = x_minus_mu[Ext-1,aa-1,mm-1,ii,:]
+	   f90_module_f2py.mod.zero_matrix = np.zeros(5) #initial allocation
+	   f90_module_f2py.mod.blas_multiplication_gmm()     #activation of the multiplication x_t*Cov_inv*x
+
+	   proba_component[ii] = normalization_here[aa-1,mm-1,ii]*np.exp(-0.5*f90_module_f2py.mod.resultat)
+	   proba_node_3D[aa-1,mm-1,Ext-1] = proba_node_3D[aa-1,mm-1,Ext-1] + proba_component[ii]
+ return proba_node_3D
+'''
+
+def probability_building(components_number,dummy,normalization_here,x_minus_mu,Grid_nodes_covariances_INV):
+ f90_module_f2py.mod.comp_number = components_number
+ f90_module_f2py.mod.cov_inv_all = Grid_nodes_covariances_INV 		#[:,:,:,:,:]  Grid_nodes_covariances_INV = np.zeros((71,71,10,5,5))
+ f90_module_f2py.mod.x_mu_all    = x_minus_mu 				#x_minus_mu = np.zeros((101,71,71,10,5))
+ f90_module_f2py.mod.normalization_here_all = normalization_here	#normalization_here = np.zeros((71,71,10))
+ f90_module_f2py.mod.proba_node_3d_all = np.zeros((71,71,101))		#proba_node_3D = np.zeros((71,71,101))
+
+ f90_module_f2py.mod.blas_multiplication_gmm()
+ '''
+ for mm in range(1,72): 
+  print mm
+  for aa in range(1,72):
+
+   for Ext in range(1,2):
+	  Ebv = (Ext-1)*0.01
+	  proba_component=np.zeros(components_number)
+	  for ii in range(0,components_number): 
+
+	   f90_module_f2py.mod.cov_inv = Grid_nodes_covariances_INV[aa-1,mm-1,ii,:,:]
+	   f90_module_f2py.mod.x_mu = x_minus_mu[Ext-1,aa-1,mm-1,ii,:]
+	   f90_module_f2py.mod.zero_matrix = np.zeros(5) #initial allocation
+	   f90_module_f2py.mod.blas_multiplication_gmm()     #activation of the multiplication x_t*Cov_inv*x
+
+	   proba_component[ii] = normalization_here[aa-1,mm-1,ii]*np.exp(-0.5*f90_module_f2py.mod.resultat)
+	   proba_node_3D[aa-1,mm-1,Ext-1] = proba_node_3D[aa-1,mm-1,Ext-1] + proba_component[ii]
+ '''
+ 
+ return f90_module_f2py.mod.proba_node_3d_all, f90_module_f2py.mod.max_proba_position_gcc
+
+
+
+
+
+
+# -----------------------------------------------------------------------------------------
+#Loading of the A_lambda (extinction parameters) for the filters selected in the input file
+# -----------------------------------------------------------------------------------------
+filters_selected_index = np.arange(5)
+filters_selected_index[0] = 3 #FOR UBVRI
+filters_selected_index[1] = 4 #FOR UBVRI
+filters_selected_index[2] = 5 #FOR UBVRI
+filters_selected_index[3] = 6 #FOR UBVRI
+filters_selected_index[4] = 7 #FOR UBVRI
+choice_extinction_law = 1
+print
+print 50*'-'
+print 'Loading of the A_lambda (extinction parameters)'
+print 50*'-'
+print
+# lambda, lambda_f_MW, lambda_f_LMC, index of filter [1-->52]
+filters_A_lambda = np.genfromtxt('Filters_information.dat',comments='#')
+if choice_extinction_law == 1:	#MW
+ A_lambda_filters_selected = filters_A_lambda[filters_selected_index-1,1]
+ Rv = 3.1
+if choice_extinction_law == 2:	#LMC
+ A_lambda_filters_selected = filters_A_lambda[filters_selected_index-1,2]
+ Rv = 3.4
+print A_lambda_filters_selected
+print
+print 50*'-'
+print 'A_lambda loaded'
+print 50*'-'
+print
+del filters_A_lambda
+#raw_input()
+
+
+
+
+#---------
+#STEP ONE: 
+#---------
+
+os.system("date")
+#index_parallel = int(sys.argv[1])
+#print index_parallel
+#raw_input()
+
+
+#Metallicity of the grid
+Z_indice = 'n00' #'m04'
+Z,zz = Lecture_module.Zindex_to_Z_and_zz(Z_indice)
+
+#No Ebv, no noise:
+#file_obs = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/SC_Parameters_20/test_1000_random_clusters/Test_1000_noise_noEbv/Fixed_mass/Half_Random_Sampling_results/UBVRI/FIXED_MASS_nonoise/UBVRI_Z01900_vs_other_Z_logm400/Clusters_created_M400_Zn00_Kroupa_ExpFactor6_completed'
+#Ebv, noise:
+file_obs = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/SC_Parameters_20/test_1000_random_clusters/Test_1000_noise_Ebv/Fixed_mass/Half_Random_Sampling_results/UBVRI/UBVRI_Z01900_vs_other_Z_logm400/Clusters_created_M400_Zn00_Kroupa_ExpFactor6_completed'
+
+data_obs = np.genfromtxt(file_obs,comments='#',names=True)
+observations = np.zeros((10000,5))
+age  = data_obs['Age']
+mass = data_obs['Mass']
+observations[:,0] = data_obs['U']
+observations[:,1] = data_obs['B']
+observations[:,2] = data_obs['V']
+observations[:,3] = data_obs['R']
+observations[:,4] = data_obs['I']
+
+#observation = observations[1,:]
+
+
+#READING THE GRID, AND STORING THE NODES
+Grid_nodes_means           = np.zeros((71,71,10,5))
+Grid_nodes_means_reddened  = np.zeros((101,71,71,10,5))
+Grid_nodes_covariances     = np.zeros((71,71,10,5,5))
+Grid_nodes_covariances_INV = np.zeros((71,71,10,5,5))
+Grid_nodes_covariances_DET_inv = np.zeros((71,71,10))
+Grid_nodes_weights         = np.zeros((71,71,10))
+for mm in range(1,72):   
+ print mm
+ for aa in range(1,72):
+  age, mass, Z, age_indice, mass_indice, Z_indice = Lecture_module.age_mass_Z_December2011(aa,mm,zz)
+
+  #Open the npz node file   
+  path_grid = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grid_HRS_allZ_ExpFactor6_Weidner_corrected_NPZ/NPZ_files/{0}/'.format(Z_indice)
+  node = np.load(path_grid+'Clusters_t{0}_M{1}_Z{2}.npz'.format(age_indice,mass_indice,Z_indice))
+
+  #Extract the means, covariances and weights
+  means       = node['means']
+  covariances = node['covariances']
+  weights     = node['weights']
+  Grid_nodes_weights[aa-1,mm-1,:]       = node['weights']
+  components_number = len(weights)
+
+  #Save them in grids
+  for ii in range(0,components_number):
+   Grid_nodes_means[aa-1,mm-1,ii,:]         = means[ii,2:7]    
+   Grid_nodes_covariances[aa-1,mm-1,ii,:,:] = covariances[ii,2:7,2:7] 
+
+  for ii in range(0,components_number): 
+   Grid_nodes_covariances_DET_inv[aa-1,mm-1,ii] = np.linalg.det(Grid_nodes_covariances[aa-1,mm-1,ii,:,:])**(-0.5)
+   #normalization_here = normalization/np.linalg.det(covariances_UBVRI[ii])**0.5 
+
+
+  for Ext in range(1,2):
+	  Ebv = (Ext-1)*0.01
+	  for ii in range(0,components_number):
+	   Grid_nodes_means_reddened[Ext-1,aa-1,mm-1,ii,:] = reddening(Grid_nodes_means[aa-1,mm-1,ii,:],A_lambda_filters_selected,Rv,Ebv)
+
+  #Computing inverse of covariance matrix 
+  Grid_nodes_covariances_INV[aa-1,mm-1,:,:,:] = np.linalg.inv(Grid_nodes_covariances[aa-1,mm-1,:,:,:])
+  #a = covariances_UBVRI
+  #ainv = np.linalg.inv(covariances_UBVRI) #We compute ALL the covariance matrices inverses in one shot!!
+  #np.allclose(np.dot(a[1], ainv[1]), np.eye(5))      #Check that the inverse are well built
+
+print 'GRID LOADED'
+raw_input()
+
+
+for list_SC in range(0,11):
+	observation = observations[list_SC,:]
+	proba_node_3D = np.zeros((71,71,101))
+	proba_node_age_mass = np.zeros((71,71))
+	normalization = 1./(2*np.pi)**(0.5*components_number)
+	normalization_here = np.zeros((71,71,10))
+	normalization_here = normalization*Grid_nodes_covariances_DET_inv[:,:,:]*Grid_nodes_weights[:,:,:]
+	x_minus_mu = np.zeros((101,71,71,10,5))
+	dummy = np.zeros((101,71,71,10,5))
+
+	for ff in range(0,5):
+	 x_minus_mu[:,:,:,:,ff] = observation[ff] - Grid_nodes_means_reddened[:,:,:,:,ff]
+
+	#print x_minus_mu[:,:,:,:,ff]
+
+	proba_node_3D, max_proba_indexes = probability_building(components_number,dummy,normalization_here,x_minus_mu,Grid_nodes_covariances_INV)
+	#print max_proba_indexes
+	aa = max_proba_indexes[0]
+	mm = max_proba_indexes[1]
+	zz=1
+	Ebv = (max_proba_indexes[2]-1)*0.01
+	age, mass, Z, age_indice, mass_indice, Z_indice = Lecture_module.age_mass_Z_December2011(aa,mm,zz)
+	print age,np.log10(mass),Ebv
+
+
+
+
+
+#Marginalization on the extinction
+for mm in range(1,72):   
+ for aa in range(1,72):
+  proba_node_age_mass[aa-1,mm-1] = proba_node_3D[aa-1,mm-1,:].sum()
+
+
+
+plt.figure()
+vector = np.linspace(1,71,71)
+hist,xedges,yedges = np.histogram2d(vector,vector, bins=(71,71), normed=False) #,range=[[6.575,10.125],[6.575,10.125]])
+extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+#plt.plot([6.6,10.1],[6.6,10.1], color='red', lw=1)
+res = plt.imshow(proba_node_age_mass[:,:].transpose(),interpolation='Nearest',aspect='auto',extent=extent,cmap=plt.cm.gist_yarg,origin='lower', norm=LogNorm(vmin=1e-150,vmax=np.max(proba_node_age_mass)))
+
+ylabel(r'$\log(m/M_{\odot})$')
+xlabel(r'$\log(t/\mathrm{yr})$')
+plt.show()
+
+
+#  '''
+
+
+
+
+
+
+

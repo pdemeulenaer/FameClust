@@ -1,0 +1,42 @@
+#-----------------------------------------------------------------------------------------
+# Number N of filters to use:
+6
+# The indexes of the N filters:
+11
+12
+13
+14
+15
+16
+# Distance modulus of the galaxy hosting your star cluster population
+24.47
+# Clusters in apparent or absolute magnitude? (1/2)
+1
+# Name of the file containing the observed clusters: #PHAT_ALL_catalog_FameClust_format_WithoutBadFilters_F101.fmct
+PHAT_ALL_catalog_FameClust_format
+# Number of the clusters in the file:
+2753
+# Are the cluster(s) studied extincted or not ? (1/2)
+1
+# Which Extinction law? MW = 1; LMC = 2, M31 = 3
+1
+# Path of the output directory: #/home/philippe/Desktop/Discrete_models_comparaison_jtao/SC_Parameters_20/results_real_clusters/Clusters_M31/M31_PHAT_project_ALL/ #/media/philippe/a36c9bac-04fd-4046-8af2-2038962a2127/philippe/Documents/PhD/Discrete_models_comparaison_jtao/SC_Parameters_20/results_real_clusters/Clusters_M31/M31_PHAT_project_ALL/
+/home/philippe/Desktop/FameClust/M31_PHAT_project_ALL/
+# Path and name of the grid of models:
+/opt/Grids_with_ACS/Grid_FRS_Z 
+_Kroupa_1000models_per_node_with_ACS_binary/
+# Number of age nodes and of mass nodes:
+71 101
+# Number of models per node:
+1000
+# Number of filters available in the grid of models:
+52
+# Name of the file containing infos of filters and extinction curve
+Filters_information_observations_WFC3_from_STSCI.dat
+# Minimum and maximum extinction:
+0.06 1.1
+# Artificial test or real clusters studied (1/2):
+2
+# Output of node files (no=0/yes=1):
+0
+#-----------------------------------------------------------------------------------------

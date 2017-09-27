@@ -1,0 +1,241 @@
+
+##############################################################################################
+#
+# Derivation of star cluster physical parameters using Simple Stellar Population (SSP) models
+#
+##############################################################################################
+
+import numpy as np
+import numexpr as ne
+import scipy
+from scipy import signal
+import os
+import math
+import time
+import random
+from random import gauss
+import pylab
+from pylab import *
+import sys
+import Lecture_module  # (Module located in /home/philippe/Desktop/Discrete_models_comparaison_jtao)
+import matplotlib.pyplot as plt
+#from sklearn import mixture 
+from matplotlib.colors import LogNorm
+#from numba import jit
+#import f90_module_f2py_GALEX_UBVRI
+#import f90_module_f2py_UBVRI  #module fortran imported throught F2PY
+import f90_module_f2py_WFC3  #module fortran imported throught F2PY
+#import f90_module_f2py_UBVRIJHK  #module fortran imported throught F2PY
+#from f90_module_f2py import blas_multiplication_gmm
+
+#Simple 1 core use: time python SSP_derivation.py InputFameClustNEW_UBVRI_Z01900_M400 1 10 n00
+
+
+# ------------------------
+# Declaration of functions
+# ------------------------
+def reddening(M1,A_lambda_filters_selected,Rv,Ebv):
+ M2 = ne.evaluate("M1 + A_lambda_filters_selected * Rv*Ebv")
+ return M2
+
+# -------------------------
+# Loading of the input file
+# -------------------------
+print
+print 80*'-'
+print
+print 50*'-'
+print 'Loading of InputFile'
+print 50*'-'
+
+os.system("date")
+InputFile_Name = sys.argv[1] # The name of input file is given during execution of the script
+number_begin = int(sys.argv[2])
+number_end = int(sys.argv[3])
+number_clusters = int(sys.argv[3])
+Z_indice = sys.argv[4]
+Z,zz = Lecture_module.Zindex_to_Z_and_zz(Z_indice)
+
+
+InputFile = open('/home/philippe/Desktop/Discrete_models_comparaison_jtao/SC_Parameters_20/'+InputFile_Name).readlines()
+my_list = []
+for line in InputFile:
+    item = str.split(line)
+    if item[0][0] != '#':
+     my_list.append(item[0])
+
+number_filters = int(my_list[0])
+print 'Number of filters selected:                 ', number_filters
+
+filters_selected_index = np.arange(number_filters) 	#integer array containing the indexes of the selected filters 
+for ii in range(0,number_filters):
+ filters_selected_index[ii] = int(my_list[ii+1])
+print 'Indexes of filters selected:               ', filters_selected_index
+
+Distance_modulus_host_galaxy = my_list[number_filters+1]
+print 'Distance modulus of the host galaxy:        ', Distance_modulus_host_galaxy
+app_or_abs = int(my_list[number_filters+2])
+print 'Apparent mags [1], Absolute mags [2]:       ', app_or_abs
+file_observed_clusters = my_list[number_filters+3]
+print 'Input file of the observed clusters:        '
+print '    ',file_observed_clusters
+number_cluster_observed = int(my_list[number_filters+4])
+print 'Number of observed clusters:                ',  number_cluster_observed	#[obsolete]
+choice_extinction = int(my_list[number_filters+5])
+print 'Cluster(s) extincted [1], not extincted [2]:', choice_extinction
+choice_extinction_law = int(my_list[number_filters+6])
+print 'Extinction law of MW [1], of LMC [2]:       ', choice_extinction_law
+path_file_out_cluster = my_list[number_filters+7]
+print 'Path of output files for derived parameters:' 
+print '    ',path_file_out_cluster
+print 50*'-'
+print 'InputFile loaded'
+print 50*'-'
+print
+#raw_input()
+
+
+# -----------------------------------------------------------------------------------------
+#Loading of the A_lambda (extinction parameters) for the filters selected in the input file
+# -----------------------------------------------------------------------------------------
+#PART 1: we load the fixed A_lambda/Av
+choice_extinction_law = 1
+print
+print 50*'-'
+print 'Loading of the A_lambda (extinction parameters)'
+print 50*'-'
+# lambda, lambda_f_MW, lambda_f_LMC, index of filter [1-->52]
+#filters_A_lambda = np.genfromtxt('Filters_information.dat',comments='#')
+#filters_A_lambda = np.genfromtxt('Filters_information_observations_WFC3_from_Welch.dat',comments='#')
+filters_A_lambda = np.genfromtxt('Filters_information_observations_WFC3_from_STSCI.dat',comments='#')
+if choice_extinction_law == 1:	#MW
+ A_lambda_filters_selected = filters_A_lambda[filters_selected_index-1,1]
+ Rv = 3.1
+if choice_extinction_law == 2:	#LMC
+ A_lambda_filters_selected = filters_A_lambda[filters_selected_index-1,2]
+ Rv = 3.4
+print A_lambda_filters_selected
+del filters_A_lambda
+
+#PART 2: We load all the A_lambda/Av tables in one 3D array (age,filters,Av); this is a more accurate description of the extinction
+A_lambda_on_Av_all_Av = np.zeros((71,1+52,11))
+for Av_index in range(0,11):
+ A_lambda_on_Av_all_Av[:,:,Av_index] = np.genfromtxt('/home/philippe/Desktop/Discrete_models_comparaison_jtao/A_lambda_on_Av_grid_Zn00/A_lambda_on_Av_for_Av_{0}'.format(Av_index),comments='#')
+
+print 50*'-'
+print 'A_lambda loaded'
+print 50*'-'
+print
+#raw_input()
+
+
+# -----------------------------------------------------------------------------------------
+#Loading of the observations
+# -----------------------------------------------------------------------------------------
+choice_sigma_observation = 0 #Artificial tests
+#choice_sigma_observation = 1 #data with sigmas given
+print
+print 50*'-'
+print 'Loading of the observation'
+print 50*'-'
+data_input         = np.genfromtxt(path_file_out_cluster+file_observed_clusters, comments='#')
+data_input_names   = np.genfromtxt(path_file_out_cluster+file_observed_clusters, comments='#',names=True)
+ID = data_input_names['ID']
+observations       = np.zeros((len(data_input[:,0]),number_filters))
+observations_sigma = np.zeros((len(data_input[:,0]),number_filters))
+print 'Filters loaded: '
+for ff in range(0,number_filters):
+ name_filter, e_name_filter = Lecture_module.Filters_Index_Name(filters_selected_index[ff])
+ print name_filter
+ observations[:,ff]       = data_input_names[name_filter]
+ if choice_sigma_observation == 1: #data with given sigmas
+  observations_sigma[:,ff] = np.maximum(0.05,data_input_names[e_name_filter])
+ # observations_sigma[:,ff] = data_input_names[e_name_filter]
+ if choice_sigma_observation == 0: #Artificial tests with artificial sigmas
+  observations_sigma[:,ff] = 0.05  #MODIFY THIS
+#observations_sigma[:,5:8] = 0.10
+#observations_sigma[:,0:2] = 0.15 #9e59
+print 'observations: ', observations
+observations[:,:] = observations[:,:] - np.float(Distance_modulus_host_galaxy)
+print 'observations: ', observations
+#We filter out the sigmas of bad data: from 99.9 -> 9e59
+filter_sigma = ne.evaluate('observations_sigma>10.')
+observations_sigma[filter_sigma] = 9e59
+
+print 'sigmas of observations: ', observations_sigma
+del data_input,data_input_names
+print 50*'-'
+print 'Observation loaded'
+print 50*'-'
+print
+#raw_input()
+
+#Ebv_min = 0.
+#Ebv_max = 1.
+#Ext_min,Ext_max=np.int(Ebv_min*100+1),np.int(Ebv_max*100+1)
+
+
+
+#READING THE SSPs, AND STORING THE NODES
+SSP_file = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/SSP/SSP_ALL_CMD25/SSP_Z{0}_allbands_CMD25L_Kr01NCB.dat'.format(Z_indice)
+SSP_data = np.genfromtxt(SSP_file,comments='#')
+SSP_ages = SSP_data[:,1] 
+SSP_photometry_ALL = SSP_data[:,3:]
+SSP_photometry_GRID = np.zeros(( len(SSP_ages), 101, number_filters ))
+
+#We fill the SSP grid for all masses and for the filters desired
+for mm in range(1,102):
+ logmass_SSP = 2. + (mm-1)*0.05
+ SSP_photometry_GRID[:,mm-1,:] = SSP_photometry_ALL[:,filters_selected_index[0]-1:filters_selected_index[0]-1+number_filters] - 2.5*logmass_SSP
+
+
+#Search of solution for each cluster
+for list_SC in range(0,number_clusters):
+
+	proba_3D = np.zeros(( len(SSP_ages), 101, 101 )) 
+
+	for aa in range(1,len(SSP_ages) ):
+	 print aa
+	 for mm in range(1,102):
+
+	  #Reddening of the grid
+	  for Ext in range(1,101): #(Ext_min,Ext_max+1):  
+	   Ebv = (Ext-1)*0.01
+	   SSP_photometry_reddened = np.zeros(number_filters)
+	   SSP_photometry_reddened[:] = reddening(SSP_photometry_GRID[aa-1,mm-1,:],A_lambda_filters_selected,Rv,Ebv) 
+
+	   x_minus_mu = np.zeros(number_filters)
+	   x_minus_mu[:] = (observations[list_SC,:] - SSP_photometry_reddened[:]) / observations_sigma[list_SC,:]
+
+	   proba_3D[aa-1,mm-1,Ext-1] = np.sum(x_minus_mu[:]*x_minus_mu[:])
+
+	proba_3D = np.exp( -0.5*proba_3D )
+
+	#PEAK SOLUTION
+	max_proba_indexes = np.unravel_index(proba_3D.argmax(), proba_3D.shape)
+
+	aa_max  = max_proba_indexes[0]+1
+	mm_max  = max_proba_indexes[1]+1
+	Ext_max = max_proba_indexes[2]+1
+
+	solution[list_SC,0] = list_SC
+	solution[list_SC,1] = 6.6+(aa_max-1)*0.01   #logage
+	solution[list_SC,2] = 2.+(mm_max-1)*0.05    #logmass
+	solution[list_SC,3] = (Ext_max-1)*0.01      #Ebv
+	solution[list_SC,4] = proba_3D.max()
+
+	print list_SC+1, solution[list_SC,1], solution[list_SC,2], solution[list_SC,3]
+
+
+#Output the solutions in file
+file_out = open('/home/philippe/Desktop/All_clusters_parameters_results_SSP_Z{0}'.format(Z_indice),'w')
+print >> file_out,  '# ID  age3 mas3 Ebv3 Proba'
+np.savetxt(file_out,solution,('%5d','%.5f','%.5f','%.5f','%.7e'))
+file_out.close()
+os.system("date")
+
+
+
+
+
+

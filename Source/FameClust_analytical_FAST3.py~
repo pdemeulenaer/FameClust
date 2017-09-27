@@ -1,0 +1,321 @@
+
+#This script is the first analytical test of FameClust method using GMM nodes
+
+import numpy as np
+import numexpr as ne
+import scipy
+import os
+import math
+import time
+import random
+from random import gauss
+import pylab
+from pylab import *
+import sys
+import Lecture_module  # (Module located in /home/philippe/Desktop/Discrete_models_comparaison_jtao)
+import matplotlib.pyplot as plt
+from sklearn import mixture 
+from matplotlib.colors import LogNorm
+from numba import jit
+import f90_module_f2py_GALEX_UBVRI
+import f90_module_f2py_UBVRI  #module fortran imported throught F2PY
+import f90_module_f2py_WFC3  #module fortran imported throught F2PY
+import f90_module_f2py_UBVRIJHK  #module fortran imported throught F2PY
+#from f90_module_f2py import blas_multiplication_gmm
+
+#Simple 1 core use: time python FameClust_analytical_FAST3.py InputFameClustNEW_WFC3_PHAT 1 10 n00
+#or: time python FameClust_analytical_FAST3.py InputFameClustNEW_UBVRI_Z01900_M400 1 10 n00
+
+# ------------------------
+# Declaration of functions
+# ------------------------
+def reddening(M1,A_lambda_filters_selected,Rv,Ebv):
+ M2 = ne.evaluate("M1 + A_lambda_filters_selected * Rv*Ebv")
+ return M2
+
+
+def probability_building(components_number,dummy,normalization_here,x_minus_mu,Grid_nodes_covariances_INV):
+ f90_module_f2py_WFC3.mod.comp_number = components_number
+ f90_module_f2py_WFC3.mod.cov_inv_all = Grid_nodes_covariances_INV 		#[:,:,:,:,:]  Grid_nodes_covariances_INV = np.zeros((71,71,10,5,5))
+ f90_module_f2py_WFC3.mod.x_mu_all    = x_minus_mu 				#x_minus_mu = np.zeros((101,71,71,10,5))
+ f90_module_f2py_WFC3.mod.normalization_here_all = normalization_here	#normalization_here = np.zeros((71,71,10))
+ f90_module_f2py_WFC3.mod.proba_node_3d_all = np.zeros((71,71,101))		#proba_node_3D = np.zeros((71,71,101))
+ f90_module_f2py_WFC3.mod.blas_multiplication_gmm()
+ return f90_module_f2py_WFC3.mod.proba_node_3d_all, f90_module_f2py_WFC3.mod.max_proba_position_gcc
+'''
+def probability_building(components_number,dummy,normalization_here,x_minus_mu,Grid_nodes_covariances_INV):
+ f90_module_f2py_UBVRI.mod.comp_number = components_number
+ f90_module_f2py_UBVRI.mod.cov_inv_all = Grid_nodes_covariances_INV 		#[:,:,:,:,:]  Grid_nodes_covariances_INV = np.zeros((71,71,10,5,5))
+ f90_module_f2py_UBVRI.mod.x_mu_all    = x_minus_mu 				#x_minus_mu = np.zeros((101,71,71,10,5))
+ f90_module_f2py_UBVRI.mod.normalization_here_all = normalization_here	#normalization_here = np.zeros((71,71,10))
+ f90_module_f2py_UBVRI.mod.proba_node_3d_all = np.zeros((71,71,101))		#proba_node_3D = np.zeros((71,71,101))
+ f90_module_f2py_UBVRI.mod.blas_multiplication_gmm()
+ return f90_module_f2py_UBVRI.mod.proba_node_3d_all, f90_module_f2py_UBVRI.mod.max_proba_position_gcc
+
+def probability_building(components_number,dummy,normalization_here,x_minus_mu,Grid_nodes_covariances_INV):
+ f90_module_f2py_UBVRIJHK.mod.comp_number = components_number
+ f90_module_f2py_UBVRIJHK.mod.cov_inv_all = Grid_nodes_covariances_INV 		#[:,:,:,:,:]  Grid_nodes_covariances_INV = np.zeros((71,71,10,5,5))
+ f90_module_f2py_UBVRIJHK.mod.x_mu_all    = x_minus_mu 				#x_minus_mu = np.zeros((101,71,71,10,5))
+ f90_module_f2py_UBVRIJHK.mod.normalization_here_all = normalization_here	#normalization_here = np.zeros((71,71,10))
+ f90_module_f2py_UBVRIJHK.mod.proba_node_3d_all = np.zeros((71,71,101))		#proba_node_3D = np.zeros((71,71,101))
+ f90_module_f2py_UBVRIJHK.mod.blas_multiplication_gmm()
+ return f90_module_f2py_UBVRIJHK.mod.proba_node_3d_all, f90_module_f2py_UBVRIJHK.mod.max_proba_position_gcc
+
+def probability_building(components_number,dummy,normalization_here,x_minus_mu,Grid_nodes_covariances_INV):
+ f90_module_f2py_GALEX_UBVRI.mod.comp_number = components_number
+ f90_module_f2py_GALEX_UBVRI.mod.cov_inv_all = Grid_nodes_covariances_INV 		#[:,:,:,:,:]  Grid_nodes_covariances_INV = np.zeros((71,71,10,5,5))
+ f90_module_f2py_GALEX_UBVRI.mod.x_mu_all    = x_minus_mu 				#x_minus_mu = np.zeros((101,71,71,10,5))
+ f90_module_f2py_GALEX_UBVRI.mod.normalization_here_all = normalization_here	#normalization_here = np.zeros((71,71,10))
+ f90_module_f2py_GALEX_UBVRI.mod.proba_node_3d_all = np.zeros((71,71,101))		#proba_node_3D = np.zeros((71,71,101))
+ f90_module_f2py_GALEX_UBVRI.mod.blas_multiplication_gmm()
+ return f90_module_f2py_GALEX_UBVRI.mod.proba_node_3d_all, f90_module_f2py_GALEX_UBVRI.mod.max_proba_position_gcc
+'''
+
+# -------------------------
+# Loading of the input file
+# -------------------------
+print
+print 80*'-'
+print
+print 50*'-'
+print 'Loading of InputFile'
+print 50*'-'
+
+os.system("date")
+InputFile_Name = sys.argv[1] # The name of input file is given during execution of the script
+number_begin = int(sys.argv[2])
+number_end = int(sys.argv[3])
+Z_indice = sys.argv[4]
+Z,zz = Lecture_module.Zindex_to_Z_and_zz(Z_indice)
+
+
+InputFile = open('/home/philippe/Desktop/Discrete_models_comparaison_jtao/SC_Parameters_20/'+InputFile_Name).readlines()
+my_list = []
+for line in InputFile:
+    item = str.split(line)
+    if item[0][0] != '#':
+     my_list.append(item[0])
+
+number_filters = int(my_list[0])
+print 'Number of filters selected:                 ', number_filters
+
+filters_selected_index = np.arange(number_filters) 	#integer array containing the indexes of the selected filters 
+for ii in range(0,number_filters):
+ filters_selected_index[ii] = int(my_list[ii+1])
+print 'Indexes of filters selected:               ', filters_selected_index
+
+Distance_modulus_host_galaxy = my_list[number_filters+1]
+print 'Distance modulus of the host galaxy:        ', Distance_modulus_host_galaxy
+app_or_abs = int(my_list[number_filters+2])
+print 'Apparent mags [1], Absolute mags [2]:       ', app_or_abs
+file_observed_clusters = my_list[number_filters+3]
+print 'Input file of the observed clusters:        '
+print '    ',file_observed_clusters
+number_cluster_observed = int(my_list[number_filters+4])
+print 'Number of observed clusters:                ',  number_cluster_observed	#[obsolete]
+choice_extinction = int(my_list[number_filters+5])
+print 'Cluster(s) extincted [1], not extincted [2]:', choice_extinction
+choice_extinction_law = int(my_list[number_filters+6])
+print 'Extinction law of MW [1], of LMC [2]:       ', choice_extinction_law
+path_file_out_cluster = my_list[number_filters+7]
+print 'Path of output files for derived parameters:' 
+print '    ',path_file_out_cluster
+print 50*'-'
+print 'InputFile loaded'
+print 50*'-'
+print
+
+raw_input()
+
+
+# -----------------------------------------------------------------------------------------
+#Loading of the A_lambda (extinction parameters) for the filters selected in the input file
+# -----------------------------------------------------------------------------------------
+choice_extinction_law = 1
+print
+print 50*'-'
+print 'Loading of the A_lambda (extinction parameters)'
+print 50*'-'
+# lambda, lambda_f_MW, lambda_f_LMC, index of filter [1-->52]
+filters_A_lambda = np.genfromtxt('Filters_information.dat',comments='#')
+#filters_A_lambda = np.genfromtxt('Filters_information_observations_WFC3_from_Welch.dat',comments='#')
+if choice_extinction_law == 1:	#MW
+ A_lambda_filters_selected = filters_A_lambda[filters_selected_index-1,1]
+ Rv = 3.1
+if choice_extinction_law == 2:	#LMC
+ A_lambda_filters_selected = filters_A_lambda[filters_selected_index-1,2]
+ Rv = 3.4
+print A_lambda_filters_selected
+print 50*'-'
+print 'A_lambda loaded'
+print 50*'-'
+print
+del filters_A_lambda
+raw_input()
+
+
+# -----------------------------------------------------------------------------------------
+#Loading of the observations
+# -----------------------------------------------------------------------------------------
+print
+print 50*'-'
+print 'Loading of the observation'
+print 50*'-'
+data_input         = np.genfromtxt(path_file_out_cluster+file_observed_clusters, comments='#')
+data_input_names   = np.genfromtxt(path_file_out_cluster+file_observed_clusters, comments='#',names=True)
+observations       = np.zeros((len(data_input[:,0]),number_filters))
+observations_sigma = np.zeros((len(data_input[:,0]),number_filters))
+print 'Filters loaded: '
+for ff in range(0,number_filters):
+ name_filter, e_name_filter = Lecture_module.Filters_Index_Name(filters_selected_index[ff])
+ print name_filter
+ observations[:,ff]       = data_input_names[name_filter]
+ #observations_sigma[:,ff] = data_input_names[e_name_filter]  #IF DATA EXISTS!!!
+ observations_sigma[:,ff] = 0.05
+#observations_sigma[:,5:8] = 0.10
+#observations_sigma[:,0:2] = 0.15 #9e59
+print 'observations: ', observations
+observations[:,:] = observations[:,:] - np.float(Distance_modulus_host_galaxy)
+print 'observations: ', observations
+#We filter out the sigmas of bad data: from 99.9 -> 9e59
+#filter_sigma = ne.evaluate('observations_sigma>10.')
+#observations_sigma[filter_sigma] = 9e59
+print 'sigmas of observations: ', observations_sigma
+#age_true  = data_input_names['logt']	#If available data
+#mass_true = data_input_names['logm']	#If available data
+#Ebv_true  = data_input_names['Av']*3.1	#If available data
+del data_input,data_input_names
+print 50*'-'
+print 'Observation loaded'
+print 50*'-'
+print
+raw_input()
+
+
+
+
+
+#READING THE GRID, AND STORING THE NODES
+Grid_nodes_means           = np.zeros((71,71,10,number_filters))
+Grid_nodes_means_reddened  = np.zeros((101,71,71,10,number_filters))
+Grid_nodes_covariances     = np.zeros((71,71,10,number_filters,number_filters))
+Grid_nodes_covariances_INV = np.zeros((71,71,10,number_filters,number_filters))
+Grid_nodes_covariances_DET_inv = np.zeros((71,71,10))
+Grid_nodes_weights         = np.zeros((71,71,10))
+Grid_nodes_covariances_obs = np.zeros((number_filters,number_filters)) #This is the cov matrix of uncertainties, containing sigmas of photometric errors
+for ff in range(0,number_filters): #Building the sigma covariance matrix
+ Grid_nodes_covariances_obs[ff,ff]=observations_sigma[0,ff]*observations_sigma[0,ff]  #i.e. 0.05*0.05, variance, not stdev
+print Grid_nodes_covariances_obs
+Grid_nodes_covariances_M     = np.zeros((71,71,10,number_filters,number_filters))
+Grid_nodes_covariances_M_INV = np.zeros((71,71,10,number_filters,number_filters))
+Grid_nodes_covariances_M_DET = np.zeros((71,71,10))
+Grid_nodes_covariances_M_DET_inv = np.zeros((71,71,10))
+for mm in range(1,72):   
+ print mm
+ for aa in range(1,72):
+  age, mass, Z, age_indice, mass_indice, Z_indice = Lecture_module.age_mass_Z_December2011(aa,mm,zz)
+
+  #Open the npz node file   
+  #path_grid = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grid_HRS_allZ_ExpFactor6_Weidner_corrected_NPZ/NPZ_files/{0}/'.format(Z_indice) #in HDD
+  path_grid = '/opt/Grid_HRS_allZ_ExpFactor6_Weidner_corrected_NPZ/NPZ_files/{0}/'.format(Z_indice) #in SSD
+  node = np.load(path_grid+'Clusters_t{0}_M{1}_Z{2}.npz'.format(age_indice,mass_indice,Z_indice))
+
+  #Extract the means, covariances and weights
+  means       			  = node['means']
+  covariances 			  = node['covariances']
+  weights     			  = node['weights']
+  Grid_nodes_weights[aa-1,mm-1,:] = node['weights']
+  components_number = len(weights)
+
+  #Save them in grids
+  for ii in range(0,components_number):
+   #Grid_nodes_means[aa-1,mm-1,ii,:]           = means[ii,2:2+number_filters]    
+   #Grid_nodes_covariances[aa-1,mm-1,ii,:,:]   = covariances[ii,2:2+number_filters,2:2+number_filters] 
+   #Grid_nodes_covariances_M[aa-1,mm-1,ii,:,:] = covariances[ii,2:2+number_filters,2:2+number_filters] + Grid_nodes_covariances_obs[:,:]
+   Grid_nodes_means[aa-1,mm-1,ii,:]           = means[ii,filters_selected_index[0]-1:filters_selected_index[0]-1+number_filters]    
+   Grid_nodes_covariances[aa-1,mm-1,ii,:,:]   = covariances[ii,filters_selected_index[0]-1:filters_selected_index[0]-1+number_filters,filters_selected_index[0]-1:filters_selected_index[0]-1+number_filters] 
+   Grid_nodes_covariances_M[aa-1,mm-1,ii,:,:] = covariances[ii,filters_selected_index[0]-1:filters_selected_index[0]-1+number_filters,filters_selected_index[0]-1:filters_selected_index[0]-1+number_filters] + Grid_nodes_covariances_obs[:,:]
+
+  for ii in range(0,components_number): 
+   Grid_nodes_covariances_DET_inv[aa-1,mm-1,ii] = np.linalg.det(Grid_nodes_covariances[aa-1,mm-1,ii,:,:])**(-0.5)
+   Grid_nodes_covariances_obs_DET_inv           = np.linalg.det(Grid_nodes_covariances_obs[:,:])**(-0.5)
+   Grid_nodes_covariances_M_DET[aa-1,mm-1,ii]   = np.linalg.det(Grid_nodes_covariances_M[aa-1,mm-1,ii,:,:])**0.5 
+   Grid_nodes_covariances_M_DET_inv[aa-1,mm-1,ii]   = np.linalg.det(Grid_nodes_covariances_M[aa-1,mm-1,ii,:,:])**(-0.5) 
+
+  for Ext in range(1,102):
+   Ebv = (Ext-1)*0.01
+   for ii in range(0,components_number):
+    Grid_nodes_means_reddened[Ext-1,aa-1,mm-1,ii,:] = reddening(Grid_nodes_means[aa-1,mm-1,ii,:],A_lambda_filters_selected,Rv,Ebv)
+
+  #Computing inverse of covariance matrix 
+  Grid_nodes_covariances_INV[aa-1,mm-1,:,:,:]   = np.linalg.inv(Grid_nodes_covariances[aa-1,mm-1,:,:,:])
+  Grid_nodes_covariances_M_INV[aa-1,mm-1,:,:,:] = np.linalg.inv(Grid_nodes_covariances_M[aa-1,mm-1,:,:,:])
+
+
+print 'GRID LOADED'
+raw_input()
+
+solution = np.zeros((1000,4))
+for list_SC in range(0,101):
+	observation = observations[list_SC,:]
+	proba_node_3D = np.zeros((71,71,101))
+	proba_node_age_mass = np.zeros((71,71))
+	normalization = 1./(2*np.pi)**(0.5*components_number)
+	normalization_here = np.zeros((71,71,10))
+	normalization_here = normalization*Grid_nodes_covariances_M_DET_inv[:,:,:]*Grid_nodes_weights[:,:,:]   		#for Sigma1 modified --> M
+	x_minus_mu = np.zeros((101,71,71,10,number_filters))
+	dummy = np.zeros((101,71,71,10,number_filters))
+
+	for ff in range(0,number_filters):
+	 x_minus_mu[:,:,:,:,ff] = observation[ff] - Grid_nodes_means_reddened[:,:,:,:,ff]
+
+	#print x_minus_mu[:,:,:,:,ff]
+
+	#proba_node_3D, max_proba_indexes = probability_building(components_number,dummy,normalization_here,x_minus_mu,Grid_nodes_covariances_INV)
+	proba_node_3D, max_proba_indexes = probability_building(components_number,dummy,normalization_here,x_minus_mu,Grid_nodes_covariances_M_INV)
+	aa = max_proba_indexes[0]
+	mm = max_proba_indexes[1]
+	zz=1
+	Ebv = (max_proba_indexes[2]-1)*0.01
+	age, mass, Z, age_indice, mass_indice, Z_indice = Lecture_module.age_mass_Z_December2011(aa,mm,zz)
+	print list_SC+1,age,np.log10(mass),Ebv
+	solution[list_SC,0] = list_SC
+	solution[list_SC,1] = age
+	solution[list_SC,2] = np.log10(mass)
+	solution[list_SC,3] = Ebv
+
+#Output the solutions in file
+file_out = open('/home/philippe/Desktop/All_clusters_parameters_results_f90_VANALYTIC_Zn00','w')
+print >> file_out,  '# ID  age3 mas3 Ebv3'
+np.savetxt(file_out,solution)
+file_out.close()
+
+
+
+
+os.system("date")
+
+'''
+#Marginalization on the extinction
+for mm in range(1,72):   
+ for aa in range(1,72):
+  proba_node_age_mass[aa-1,mm-1] = proba_node_3D[aa-1,mm-1,:].sum()
+
+plt.figure()
+vector = np.linspace(1,71,71)
+hist,xedges,yedges = np.histogram2d(vector,vector, bins=(71,71), normed=False) #,range=[[6.575,10.125],[6.575,10.125]])
+extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+#plt.plot([6.6,10.1],[6.6,10.1], color='red', lw=1)
+res = plt.imshow(proba_node_age_mass[:,:].transpose(),interpolation='Nearest',aspect='auto',extent=extent,cmap=plt.cm.gist_yarg,origin='lower', norm=LogNorm(vmin=1e-150,vmax=np.max(proba_node_age_mass)))
+
+ylabel(r'$\log(m/M_{\odot})$')
+xlabel(r'$\log(t/\mathrm{yr})$')
+plt.show()
+'''
+
+
+
+
+
+
+

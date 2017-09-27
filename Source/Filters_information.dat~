@@ -1,0 +1,57 @@
+# Lambda (um)   A_lambda_MW     A_lambda_LMC    Index     sigma      sigma_classic  a_sigma  b_sigma c_sigma           Filter		Reference_for_MW				Reference_for_LMC
+0.15423         2.61287         2.71980         1         0.15       0.60           0.67     -16.72  0.10             #FUV - Galex	http://dogwood.physics.mcmaster.ca/Acurve.html  Extinction_curve_interpolation.py
+0.22744         2.94763         2.78806         2         0.15       0.60           0.66     -16.72  0.10             #NUV - Galex	http://dogwood.physics.mcmaster.ca/Acurve.html  Extinction_curve_interpolation.py
+0.35706         1.55484         1.55694         3         0.05       0.05           0.55     -12.67  0.12             #U - Johnson                  					Extinction_curve_interpolation.py
+0.43781         1.32258         1.29881         4         0.05       0.05           0.43     -10.06  0.10             #B - Johnson                  					Extinction_curve_interpolation.py
+0.54661         1.00000         1.00738         5         0.05       0.05           0.43     -10.06  0.05             #V - Johnson                  					Extinction_curve_interpolation.py	
+0.65571         0.81935         0.79101         6         0.05       0.05           0.48     -10.69  0.05             #R - Cousins                  					Extinction_curve_interpolation.py
+0.79788         0.59677         0.58115         7         0.05       0.05           0.53     -11.12  0.05             #I - Cousins                  					Extinction_curve_interpolation.py	
+1.21009         0.27194         0.27580         8         0.10       0.10           0.       0.      0.               #J - Bessel 							Extinction_curve_interpolation.py	
+1.629           0.16129         0.18888         9         0.10       0.10           0.       0.      0.               #H - Bessel 							Extinction_curve_interpolation.py
+2.205           0.09290         0.03            10        0.10       0.10           0.       0.      0.               #K - Bessel 							Extinction_curve_interpolation.py
+0.28320         1.92323         1.90025         11        0.05       0.05           0.       0.      0.               #F275W - WFC3	http://dogwood.physics.mcmaster.ca/Acurve.html  Extinction_curve_interpolation.py
+0.33828         1.62498         1.61895         12        0.05       0.05           0.       0.      0.               #F336W - WFC3	http://dogwood.physics.mcmaster.ca/Acurve.html  Extinction_curve_interpolation.py
+0.48412         1.17053         1.15945         13        0.05       0.05           0.       0.      0.               #F475W - WFC3	http://dogwood.physics.mcmaster.ca/Acurve.html  Extinction_curve_interpolation.py
+0.80090         0.59620         0.57750         14        0.05       0.05           0.       0.      0.               #F814W - WFC3	http://dogwood.physics.mcmaster.ca/Acurve.html  Extinction_curve_interpolation.py
+1.14091         0.32674         0.31151         15        0.05       0.05           0.       0.      0.               #F110W - WFC3	http://dogwood.physics.mcmaster.ca/Acurve.html  Extinction_curve_interpolation.py
+1.53215         0.20326         0.20308         16        0.05       0.05           0.       0.      0.               #F160W - WFC3	http://dogwood.physics.mcmaster.ca/Acurve.html  Extinction_curve_interpolation.py
+0.38801         1.466           1.452           17        0.05       0.05           0.       0.      0.               #u - CFHT                 
+0.49061         1.166           1.142           18        0.05       0.05           0.       0.      0.               #g - CFHT                 
+0.62519         0.856           0.845           19        0.05       0.05           0.       0.      0.               #r - CFHT                 
+0.76713         0.656           0.620           20        0.05       0.05           0.       0.      0.               #i - CFHT                 
+0.88506         0.500           0.492           21        0.05       0.05           0.       0.      0.               #z - CFHT                 
+0.35949         1.56931         1.54939         22        0.05       0.05           0.53     -12.67  0.02             #u - SDSS   	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.46404         1.23774         1.21700         23        0.05       0.05           0.39     -10.06  0.               #g - SDSS   	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.61223         0.88672         0.86878         24        0.05       0.05           0.45     -10.69  0.               #r - SDSS   	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.74395         0.68181         0.65131         25        0.05       0.05           0.45     -10.53  0.               #i - SDSS   	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.88971         0.48808         0.48787         26        0.05       0.05           0.51     -11.12  0.02             #z - SDSS   	http://dogwood.physics.mcmaster.ca/Acurve.html
+1.23500         0.28761         0.26392         27        0.10       0.15           0.       0.      0.               #J - 2MASS	http://dogwood.physics.mcmaster.ca/Acurve.html
+1.66200         0.17831         0.18154         28        0.10       0.15           0.       0.      0.               #H - 2MASS	http://dogwood.physics.mcmaster.ca/Acurve.html
+2.15900         0.11701         0.03845         29        0.10       0.15           0.56     -9.70   0.05             #Ks - 2MASS	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.33827         1.62501         1.61898         30        0.05       0.05           0.60     -13.56  0.05             #a - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.390897        1.49186         1.44224         31        0.05       0.05           0.82     -18.06  0.08             #b - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.419895        1.39765         1.34980         32        0.05       0.05           0.49     -12.0   0.06             #c - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.45546         1.26817         1.24314         33        0.05       0.05           0.57     -12.99  0.06             #d - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.48723         1.16072         1.15095         34        0.05       0.05           0.62     -14.21  0.06             #e - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.52487         1.05577         1.05617         35        0.05       0.05           0.59     -13.55  0.07             #f - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.57832         0.94410         0.93685         36        0.05       0.05           0.61     -13.83  0.05             #g - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.60720         0.89487         0.87840         37        0.05       0.05           0.61     -14.00  0.06             #h - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.67098         0.79510         0.76421         38        0.05       0.05           0.72     -15.81  0.05             #i - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.70097         0.74866         0.71496         39        0.05       0.05           0.69     -15.12  0.07             #j - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.75264         0.66838         0.63933         40        0.05       0.05           0.61     -13.13  0.05             #k - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.80237         0.59410         0.57573         41        0.05       0.05           0.72     -15.35  0.07             #m - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.85161         0.52900         0.52370         42        0.05       0.05           0.67     -14.14  0.07             #n - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.91717         0.46434         0.46389         43        0.05       0.05           0.55     -11.69  0.10             #o - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.97224         0.42273         0.41988         44        0.05       0.05           0.52     -10.89  0.08             #p - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+0.65963         0.81261         0.78401         45        0.05       0.05           0.       0.      0.               #t - BATC	http://dogwood.physics.mcmaster.ca/Acurve.html
+3.50751         0               0               46        0.10       0.10           0.       0.      0.               #IRAC36 - Spitzer	
+4.43658         0               0               47        0.10       0.10           0.       0.      0.               #IRAC45 - Spitzer
+5.62810         0               0               48        0.10       0.10           0.       0.      0.               #IRAC58 - Spitzer
+7.58916         0               0               49        0.10       0.10           0.       0.      0.               #IRAC80 - Spitzer
+23.2096         0               0               50        0.10       0.10           0.       0.      0.               #mips24 - Spitzer
+68.44476        0               0               51        0.10       0.10           0.       0.      0.               #mips70 - Spitzer
+152.59023       0               0               52        0.10       0.10           0.       0.      0.               #mips160 - Spitzer	
+
+
+
+

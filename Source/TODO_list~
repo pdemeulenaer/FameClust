@@ -1,0 +1,76 @@
+
+========================
+	FameClust
+========================
+
+
+Mid-term objectives:
+--------------------
+
+- Create a Python version of FameClust which does exactly the same operations (discrete, no GMM) as the Fortran version. This is the starting point to build the GMM version. The idea is to start from a Python discrete version which gives exactly the same results as Fortran one, and done smoothly migrate to GMM. It will take time!
+
++ V10.4: include colors treatement in FameClust, not just magnitudes
+
++ V10.5: FameClust_V105 takes into account the Magnitude Limit algorithm (MagLim) for filters for which the measurement is not exact but is a magnitude-limit
+
++ V10.5: create a Python preparation code (Launcher_FameClust_Fortran_V105.py) which reads the input file, reads the photometry file, and creates a new photometry file (.fmct) which contains also the MagLim array, so that FameClust can recognize which filters should be treated normally and which ones are in magnitude-limit. This script build a new .fmct file ONLY IF THERE IS NO PHOTOMETRY .fmct FILE IN THE FOLDER! If we want to build a new .fmct file, just erase the old one. This is a security so that several FameClust run (e.g., when different metallicities) can go together on the same .fmct photometry file without recreating that file for each run. 
+
++ Prep code: put the reading of the input file in a python function to increase the readability
+
+- Put all possible choices in the input file, to free the code for choices! The code should
+  not be modified when I want to launch it on different objects (M31, M33, artificial tests, ...)
+  + put grid name, location, and size 
+  + put name and location of file containing extinction info
+  + put minimum and maximum allowed extinction
+  + indicate if real clusters or artificial tests
+  + include the choice to output node files
+  - simple filters or colors used (like was done for V10.4)
+  - put the minimal photometric uncertainties
+
+ - keep the executing code in the Dropbox directory and not anymore in local directory 
+
+- V10.6: include the colors treatment of V10.4 in the V10.5 version => V10.6
+
+- solve the small shit concerning the extinction array, do that in V10.6 
+
+- output the results indicating the version of the code. In the python scripts of treatement of results, i will take that into account
+
+- Make FameClust insensitive to the size of the grid loaded! For that it could be a good idea to indicate the name, size and location of the grid used in the input file...think about that.
+
++ CREATION OF V20.0 version: ANALYTICAL FAMECLUST IN FORTRAN. 
+
+- Generalize the V20.0 version, add all possible options (MagLim, colours treatement)
+
+- adapt the python launcher to the V20.0 version
+
+- Clean the modules from deprecated/unneeded functions and rountines
+
+- Create a Makefile that will compile the code automatically. See how to do that. 
+
+- Put all the needed F90 modules in one place (in the source) and indicate in the Makefile their location
+
+
+
+
+
+
+Long-term objectives:
+---------------------
+
+- Migrate the code to Github or Bitbucket
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,491 @@
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !											    !
+ !											    !
+ !		FameClust 11.1 			 		 			    !	
+ !		(Finding of Age Mass and Extinction of star Clusters)			    !
+ !		Philippe de Meulenaer, PhD Student in Astrophysics (year three)		    !
+ !		Astronomical Observatory, Vilnius University				    !
+ !											    !
+ !											    !
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !
+ ! Marie je te confie cela...
+ !
+ ! Date of conception: 13 February 2013
+ ! Last update : 13 February 2013
+ ! Compilation : gfortran -O2 -march=native -mcmodel=medium Module_lecture.f90 FameClust_V111.f90 -o FameClust_V111.exe
+ ! Execution: time ./FameClust_V111.exe InputFameClustNEW_UBVRI_Z00800 1 10000 m04
+ !
+ ! copy to server: scp FameClust_V111.f90 philippe@192.168.34.127:/home/philippe/Desktop/Discrete_models_comparaison_jtao/SC_Parameters_20/Source
+ ! 
+ !	   (No pain, no gain!)
+ !         (Let's DO it!)
+ !        O 
+ !    ___o
+ !   (*,*)
+ !   (   )
+ !---"--"----
+ !
+ !
+ !!!!!!!!!!!!!!!!!!!!!!!!!!
+ !IMPORTATIONS
+ !!!!!!!!!!!!!!!!!!!!!!!!!!
+
+ Program main
+ use Lecture_module_fortran
+ implicit none
+
+ !!!!!!!!!!!!!!!!
+ !INITIALISATIONS
+ !!!!!!!!!!!!!!!!
+ integer, parameter :: N_bin_all_nodes = 5751000 !For high-mass grid
+ !integer, parameter :: N_bin_all_nodes = 4331000 for low-mass grid
+ real(4), allocatable :: magnitude_GRID(:,:)
+ real(4), allocatable :: age_list(:), mass_list(:), Ebv_list(:), sigma_obs_vector(:)
+ real(4), allocatable :: age_max_chi2(:),mass_max_chi2(:),Ebv_max_chi2(:), chi2(:)
+ real(4), allocatable :: A_lambda_filters_selected(:),M1_input(:,:),M1(:),M2(:),gaps_in_filter(:,:)
+ real(4), allocatable :: M1_input_initial(:,:)
+ real(4) :: chi2_min, chi2_min_old
+ real(4) :: age, mass, Z, Ebv, age_maximal, mass_maximal, Z_maximal 
+ real(4) :: distance_modulus
+ real(4) :: node_solution(650:1200,200:600,1:101,1:9)
+ real(4) :: lambda, lambda_f_MW, lambda_f_LMC
+ real(4) :: Probability_node,Probability_node_2,Probability_node_3,Probability_node_4
+ real(4) :: GRID_read(1:1000,1:52),data_input(1:52),data_sigma_input(1:52),xx
+ real(4) :: Z_selected, Rv 
+ real(4), allocatable :: Grid_completed(:,:), M0(:,:), M1_M0(:,:),M2_M1(:),M0_prime(:,:), M1_M0_prime(:,:)
+ real(4), allocatable :: d_direct_square(:),d_parallel_square(:)
+ real(4), allocatable :: d_perpendicular_square(:),d_perpendicular(:)
+ real(4), allocatable :: Ebv_vector(:), Grid_completed_selection(:,:)
+ real(4), allocatable :: age_max_CG(:),mass_max_CG(:),Ebv_max_CG(:),Proba_max_CG(:)
+ real(4), allocatable :: age_max_d2(:),mass_max_d2(:),Ebv_max_d2(:),Proba_max_d2(:)
+ real(4), allocatable :: k(:), sigma_filter(:,:) !General case
+ real(4) :: M2_M1_square, M2_M1_square_inverse
+ real(4) :: sigma_magnitude,counting_inverse, proba_model, sigma_filter_automatic
+ real(4) :: k_lower, k_higher, a_sigma, b_sigma, c_sigma, sigma_exp
+ integer, allocatable :: sigma1_total(:), sigma2_total(:), sigma3_total(:)
+ integer, allocatable ::  filters_selected(:)
+ integer, allocatable :: Cluster_ID(:),counting(:),OB_size(:)
+ integer(8) :: compteur
+ integer :: sigma1_number, sigma2_number, sigma3_number
+ integer :: Ext_limit1,Ext_limit2,filter_ID
+ integer :: ff,hh,ii,jj,kk,ll,a,m,zz,Ext, number_cluster,n_lines,node
+ integer :: list, number_cluster_observed
+ integer :: multi_1,multi_2, method, choice, choice_extinction, weight
+ integer :: number_filters, choice_filters, filters(1:52), choice_extinction_law
+ integer :: idum, choice_noise, app_or_abs, switch, age_int, mass_int, aa,mm
+ integer ::  number_begin, number_end, in_box, sigma_factor, choice_sigma
+ character(len=50) :: file_name,arg
+ character(len=200) :: InputFile_Name
+ character(len=50) :: age_indice,mass_indice,Z_indice,Ebv_indice,noise_flag,extinction_flag
+ character(len=50) :: extinction_file_name
+ character(len=50) :: multi_char,jj_char, file_out_cluster2
+ character(len=300) :: file_out_cluster, file_out_cluster_f90, file_name_grid,file_Test_1000_random_clusters
+ character(len=300) :: file_observed_clusters,file_name_nodes_bin,forma
+ CHARACTER(len=3) :: Z_indice_selected
+ write(*,*)
+ CALL system('date')
+
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !GETTING THE ARGUMENTS OF THE COMMAND-LINE 
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ call getarg(1, InputFile_Name)
+ InputFile_Name = '/home/philippe/Desktop/Discrete_models_comparaison_jtao&
+	&/SC_Parameters_20/'//trim(adjustl(adjustr(InputFile_Name)))
+ call getarg(2, arg) 
+ read (arg,'(I10)') number_begin
+ call getarg(3, arg)
+ read (arg,'(I10)') number_end
+ call getarg(4, Z_indice_selected) 
+ call age_mass_Z_December_Inverse(aa,mm,zz,Ext,age,mass,Z,Ebv, Z_indice_selected)
+ call age_mass_Z_December(a,m,zz,Ext, age, mass, Z_selected, Ebv, age_indice, mass_indice, Z_indice, Ebv_indice)
+ write(*,*)Z_indice,zz,Z_selected
+
+
+ !# -------------------------
+ !# Loading of the input file
+ !# -------------------------
+ open(unit=10,file=InputFile_Name)
+ READ(10,*)
+ READ(10,*)
+ READ(10,*)number_filters
+ READ(10,*)
+ allocate(filters_selected(1:number_filters),A_lambda_filters_selected(1:number_filters))
+ DO ii = 1,number_filters
+  READ(10,*) choice_filters
+  filters_selected(ii)=choice_filters
+  filters(choice_filters) = 1
+ ENDDO
+ READ(10,*)
+ READ(10,*) distance_modulus  		!M33: 24.54 (McConnachie2004;2005) !M31: 24.47 (Narbutis2008)
+ READ(10,*)
+ READ(10,*) app_or_abs			!apparent or absolute magnitude? (1/2)
+ READ(10,*)
+ READ(10,*) file_observed_clusters	!name of the file containing the observed clusters
+ READ(10,*)
+ READ(10,*) number_cluster_observed	!How many clusters are there in your file
+ READ(10,*)
+ READ(10,*) choice_extinction		!cluster(s) studied extincted or not ? (1/2)
+ READ(10,*)
+ READ(10,*) choice_extinction_law
+ READ(10,*)
+ !READ(10,*) choice_sigma		!Automatic sigma (1) input file sigma (2)
+ !READ(10,*)
+ READ(10,'(a)') file_out_cluster  	!This format '(a)' because of the slashes in the name of directories
+ write(*,*) file_out_cluster		!Path where to store the output files
+ close(10)
+
+
+ !# -----------------------------------
+ !# Allocations of the different tables
+ !# -----------------------------------
+ ALLOCATE(Cluster_ID(1:number_cluster_observed))
+ ALLOCATE(Grid_completed(1:N_bin_all_nodes,1:4+number_filters+2))
+ ALLOCATE(M0(1:N_bin_all_nodes,1:number_filters),M0_prime(1:N_bin_all_nodes,1:number_filters))
+ ALLOCATE(M1_input(1:number_cluster_observed,1:number_filters))
+ ALLOCATE(M1_input_initial(1:number_cluster_observed,1:number_filters))
+ ALLOCATE(M1(1:number_filters),M2(1:number_filters))
+ ALLOCATE(M1_M0(1:N_bin_all_nodes,1:number_filters),M1_M0_prime(1:N_bin_all_nodes,1:number_filters))
+ ALLOCATE(M2_M1(1:number_filters))
+ ALLOCATE(d_direct_square(1:N_bin_all_nodes))
+ ALLOCATE(d_parallel_square(1:N_bin_all_nodes))
+ ALLOCATE(d_perpendicular_square(1:N_bin_all_nodes))
+ ALLOCATE(d_perpendicular(1:N_bin_all_nodes))
+ ALLOCATE(Ebv_vector(1:N_bin_all_nodes))
+ ALLOCATE(Grid_completed_selection(1:5000000,1:4+number_filters+2+number_filters))
+ ALLOCATE(age_max_CG(1:number_cluster_observed),mass_max_CG(1:number_cluster_observed))
+ ALLOCATE(Ebv_max_CG(1:number_cluster_observed),Proba_max_CG(1:number_cluster_observed))
+ ALLOCATE(age_max_d2(1:number_cluster_observed),mass_max_d2(1:number_cluster_observed))
+ ALLOCATE(Ebv_max_d2(1:number_cluster_observed),Proba_max_d2(1:number_cluster_observed))
+ ALLOCATE(k(1:N_bin_all_nodes),counting(1:number_cluster_observed))
+ ALLOCATE(OB_size(1:number_cluster_observed))
+ ALLOCATE(sigma_filter(1:number_cluster_observed,1:number_filters))	!General case
+ ALLOCATE(gaps_in_filter(1:number_cluster_observed,1:number_filters))
+
+
+
+
+
+
+ !# -----------------------------------------------------------------------------------------
+ !#Loading of the observations
+ !# -----------------------------------------------------------------------------------------
+ !choice_sigma=1		!Automatic sigmas
+ choice_sigma=2	!maximum between data sigmas and power-law sigmas
+ CALL chdir(file_out_cluster)
+ OPEN(unit=11,file=file_observed_clusters)
+ READ(11,*)
+ M1_input(:,:)=0.
+ DO list = 1, number_cluster_observed
+  if (choice_sigma==2) then	!If we want input sigma, for each filter, for each cluster observed
+   READ(11,*) Cluster_ID(list), xx,xx,xx,xx, data_input(1:52), xx,xx,xx,xx, data_sigma_input(1:52)
+   do ff = 1,number_filters   
+    sigma_filter(list,ff) = data_sigma_input(filters_selected(ff)) 
+   enddo
+  else				!If not, automated sigma are the ones loaded from Filters_information.dat file
+   READ(11,*) Cluster_ID(list), xx,xx,xx,xx, data_input(1:52)
+  endif
+  do ff = 1,number_filters   
+   M1_input(list,ff) = data_input(filters_selected(ff))
+   M1_input_initial(list,ff) = data_input(filters_selected(ff))
+  enddo
+  IF (app_or_abs == 1) then
+   do ii = 1, number_filters
+    M1_input(list,ii) = M1_input(list,ii) - distance_modulus
+   enddo
+  ENDIF
+ ENDDO
+ CLOSE(11)
+
+
+ !FOR GALEX: AB -> vega system!!! (GALEX in my grid is given in vega system)
+ DO ff = 1,number_filters
+  if (filters_selected(ff)==1) M1_input(:,ff) = M1_input(:,ff) - 2.128
+  if (filters_selected(ff)==2) M1_input(:,ff) = M1_input(:,ff) - 1.662 
+ ENDDO
+
+ write(*,*) M1_input(1,1:2)
+ read(*,*)
+
+ !Indication of the possible gaps in input data of observed clusters
+ gaps_in_filter(:,:) = 1
+ DO list = 1, number_cluster_observed
+  do ff=1,number_filters
+   if (M1_input(list,ff) >= 40.) then
+    gaps_in_filter(list,ff) = 0
+   endif
+  enddo
+ Enddo
+
+
+ 
+
+
+
+ !# -----------------------------------------------------------------------------------------
+ !#Loading of the A_lambda (extinction parameters) for the filters selected in the input file
+ !# -----------------------------------------------------------------------------------------
+ CALL chdir('/home/philippe/Desktop/Discrete_models_comparaison_jtao/SC_Parameters_20/Source/')
+ open(unit=18, file = 'Filters_information.dat')
+ read(18,*)
+ jj=0
+ do ii = 1,52 !46
+  read(18,*)lambda, lambda_f_MW, lambda_f_LMC, filter_ID, sigma_filter_automatic, xx, a_sigma, b_sigma, c_sigma
+  if (filters(ii) == 1) then
+   jj=jj+1
+   if (choice_extinction_law == 1) then		!Case MW
+    Rv = 3.1
+    A_lambda_filters_selected(jj)=lambda_f_MW
+   elseif (choice_extinction_law == 2) then	!Case LMC average (Gordon 2003)
+    Rv = 3.4
+    A_lambda_filters_selected(jj)=lambda_f_LMC
+   endif
+
+   write(*,*)a_sigma, b_sigma, c_sigma, M1_input_initial(1,jj)
+   write(*,*)exp(a_sigma * (M1_input_initial(1,jj) + b_sigma/a_sigma) ) + c_sigma
+   !read(*,*)
+
+   !Giving a sigma value for each filter of each observed cluster!
+   !sigma_filter(:,jj) = sigma_filter_automatic  !+ 0.1  !Automatic sigmas, same for all observed clusters  
+   !test for add sigma of model, of distance and of reddening
+   !do list = 1, number_cluster_observed
+   ! if (gaps_in_filter(list,jj) == 1) then  !only for the ones with data
+   !  sigma_exp = exp(a_sigma * (M1_input_initial(list,jj) + b_sigma/a_sigma) ) + c_sigma
+   !  sigma_filter(list,jj) = max(sigma_filter(list,jj),sigma_exp)    
+   !  !exponentiel uncertainty law. Different value for each observed cluster
+   ! elseif (gaps_in_filter(list,jj) == 0) then  !prevent gaps
+   !  sigma_filter(list,jj) = 0.
+   ! endif
+   !enddo
+
+   if (choice_sigma==1) then	  !Automatic sigmas, same for all observed clusters  
+    sigma_filter(:,jj) = sigma_filter_automatic
+   elseif (choice_sigma==2) then  !sigmas taken from data
+    !Giving a sigma value for each filter of each observed cluster!
+    !test for add sigma of model, of distance and of reddening
+    do list = 1, number_cluster_observed
+     if (gaps_in_filter(list,jj) == 1) then  !only for the ones with data
+      sigma_exp = exp(a_sigma * (M1_input_initial(list,jj) + b_sigma/a_sigma) ) + c_sigma
+      sigma_filter(list,jj) = max(sigma_filter(list,jj),sigma_exp)    
+      !exponentiel uncertainty law. Different value for each observed cluster
+     elseif (gaps_in_filter(list,jj) == 0) then  !prevent gaps
+      sigma_filter(list,jj) = 0.
+     endif
+    enddo
+   endif 
+
+  endif
+ enddo
+ close(18)
+
+ do ff=1,number_filters
+  write(*,*)ff,A_lambda_filters_selected(ff),sigma_filter(1,ff)
+ enddo
+ !read(*,*)
+
+
+
+
+
+ !# ----------------------------------------------
+ !# Loading of the grid of models (from .bin file)
+ !# ----------------------------------------------
+ Grid_completed(:,:) = 0.
+ CALL system('date')
+ WRITE(*,*) '' 
+ WRITE(*,*) ' Loading of the grid in the program'
+ ii=1
+ Do aa = 1,71  		!Loop on the age. 
+  Do mm = 1,81 ![2.7-5.0] !81   		!Loop on the mass. 
+    Ext = 1
+    call age_mass_Z_December(aa,mm,zz,Ext,age,mass,Z,Ebv,age_indice,mass_indice,Z_indice,Ebv_indice)
+    file_name_nodes_bin = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grid_gCMD014_71_81_Z'
+    file_name_nodes_bin = trim(file_name_nodes_bin) // trim(Z_indice) // '_AllB_HST_20pc_untruncated_iso_binary/'
+    file_name_nodes_bin = trim(file_name_nodes_bin) // 't' // trim(age_indice) // '_M' //&
+	& trim(mass_indice) // '_Z' // trim(Z_indice)
+    call Lecture_UBVRI_ugriz_GRID_Jan2013(file_name_nodes_bin,GRID_READ) 
+    do ff=1,number_filters 
+     Grid_completed(ii:ii+999,4+ff) = GRID_READ(:,filters_selected(ff))
+    enddo
+    Grid_completed(ii:ii+999,1) = age
+    Grid_completed(ii:ii+999,2) = log10(mass)
+    Grid_completed(ii:ii+999,4) = Z
+    ii=ii+1000
+  Enddo
+  write(*,*)age
+ Enddo
+ do ff=1,number_filters 
+  M0(:,ff) = Grid_completed(:,4+ff) 
+ enddo
+
+
+ WRITE(*,*) ' The grid has been loaded correctly' 
+ WRITE(*,*) '' 
+ CALL system('date')
+
+
+
+ DO list = number_begin,number_end
+	!#We first take the observation from the list of observed clusters:
+	M1(:) = M1_input(list,:)
+
+
+	!# ------------------------------------------------------------------------
+	!# Reddening of the models
+	!# ------------------------------------------------------------------------
+	counting(list) = 0
+	OB_size(list) = 3
+	sigma_factor = 3	!Indicates the size of the OB, in sigma units
+	do
+	 Do Ext = 1,51
+
+		Ebv = (Ext-1) * 0.02
+
+        	do ff=1,number_filters
+			M0_prime(:,ff) = M0(:,ff) + A_lambda_filters_selected(ff) * Rv * Ebv
+		enddo
+
+        	do ff=1,number_filters
+	 		M1_M0_prime(:,ff) = abs(M0_prime(:,ff) - M1(ff))
+        	enddo
+
+		do ii = 1,N_bin_all_nodes
+
+			in_box=0
+			do ff = 1,number_filters
+			 if (M1_M0_prime(ii,ff)<sigma_factor*sigma_filter(list,ff)) then	!selection
+			  in_box=1
+			 else
+			  in_box=0
+			  exit
+		 	 endif
+			enddo
+
+			if (in_box==1) then
+			 counting(list) = counting(list) + 1
+			 Grid_completed_selection(counting(list),:) = Grid_completed(ii,:)
+			 Grid_completed_selection(counting(list),3) = Ebv
+			 !Grid_completed_selection(counting(list),4+number_filters+1) = d_perpendicular_square(ii) !**0.5
+			 !Grid_completed_selection(counting(list),4+number_filters+2) = d_perpendicular_square(ii)**(-1)
+			 Grid_completed_selection(counting(list),4+number_filters+2+1:4+number_filters+2+number_filters) = &
+			&   M1_M0_prime(ii,1:number_filters) !Here add the M1-M0_prime table in Grid_completed_selection
+			endif
+		enddo
+
+	 Enddo
+
+	 if (counting(list) > 1000) then
+	  exit
+	 elseif (sigma_factor >= 6) then	!We do not explore further than 6 sigmas from observation
+	  exit
+	 else
+	  sigma_factor = sigma_factor + 1
+	  OB_size(list) = OB_size(list) +1
+	 endif
+
+	enddo
+
+
+	counting_inverse = (counting(list)*1.)**(-1)
+	write(*,*) 'Cluster  ', list, ' #in OB ',counting(list), ' OB_size = ', OB_size(list)
+	!Here i could write a file containing all the models in the OB
+
+
+	!# ------------------------------------
+	!# Building the probabilities 
+	!# ------------------------------------
+	!Writing of final solution 
+	node_solution = 0.
+	Proba_max_CG(list) = 0.
+	do ii = 1,counting(list)
+		 age_int = nint(Grid_completed_selection(ii,1)*100)
+		 mass_int = nint(Grid_completed_selection(ii,2)*100)
+		 Ext = nint(50*Grid_completed_selection(ii,3)) + 1
+
+		 proba_model=0.
+		 do ff = 1,number_filters
+		  proba_model = proba_model &
+		& + ( Grid_completed_selection(ii,4+number_filters+2+ff) / sigma_filter(list,ff) )**2	!General case
+		 enddo
+		 node_solution(age_int,mass_int,Ext,1) = node_solution(age_int,mass_int,Ext,1) &
+		& + exp(-0.5*proba_model) * counting_inverse	 					!CG
+
+		 if (node_solution(age_int,mass_int,Ext,1) > Proba_max_CG(list)) then
+		  age_max_CG(list) = Grid_completed_selection(ii,1)
+		  mass_max_CG(list) = Grid_completed_selection(ii,2)
+		  Ebv_max_CG(list) = Grid_completed_selection(ii,3)
+		  Proba_max_CG(list) = node_solution(age_int,mass_int,Ext,1)
+		 endif
+	enddo
+	
+
+	!# ----------------------------------------------
+	!Writing of node file for each individual cluster  (takes a bit more time)
+	!# ----------------------------------------------
+	!WRITE(jj_char, '(i10)' ) Cluster_ID(list)
+	!OPEN(unit = 40,file=trim(file_out_cluster)//'Cluster_'//trim(adjustl(jj_char))//'_node_Z'//Z_indice_selected//'_V100.dat')
+	!!!OPEN(unit = 40,file=trim(file_out_cluster)//'_'//trim(adjustl(jj_char))//'_node_Z'//Z_indice_selected//'.bin', form='UNFORMATTED')
+ 	!do age_int = 650, 1200
+ 	! do mass_int = 200, 600
+ 	!  do Ext = 1,51 !Ext_limit1,Ext_limit2
+	!   if (node_solution(age_int,mass_int,Ext,1) > 0.) then
+ 	!    write(40,'(i5,i5,i5,E12.4,E12.4)') &
+ 	!    !write(40) &
+	!& age_int, mass_int, Ext, &
+	!& node_solution(age_int,mass_int,Ext,1), &
+	!& node_solution(age_int,mass_int,Ext,2)
+	!   endif
+ 	!  enddo
+ 	! enddo
+ 	!enddo
+ 	!close(40)
+ ENDDO
+
+ read(*,*)
+
+ !# ----------------------------------------------
+ !Writing of solutions for all clusters (for 1Z)
+ !# ----------------------------------------------
+ file_out_cluster_f90 = trim(file_out_cluster)
+ file_out_cluster = trim(file_out_cluster)//'file_out_cluster'
+ file_out_cluster_f90 = trim(file_out_cluster_f90)//'All_clusters_parameters_results_f90_V100'
+ file_out_cluster_f90 = trim(file_out_cluster_f90)//'_Z'//Z_indice_selected
+ open(unit=41,file=file_out_cluster_f90)
+ write(41,*)'#   age3 mas3 Ebv3  Proba3       age4 mas4 Ebv4  Proba4         count    OB'
+ do list = number_begin,number_end
+  write(41,'(i5,F7.2,F5.2,F5.2,E12.4,F7.2,F5.2,F5.2,E12.4,i10,i5)') &
+	& Cluster_ID(list), &
+	& age_max_CG(list),mass_max_CG(list),Ebv_max_CG(list),Proba_max_CG(list), &
+	& age_max_d2(list),mass_max_d2(list),Ebv_max_d2(list),Proba_max_d2(list), &
+	& counting(list), OB_size(list)
+ enddo
+ close(41)
+
+
+ deALLOCATE(Cluster_ID)
+ deALLOCATE(Grid_completed)
+ deALLOCATE(M0)
+ deALLOCATE(M1_input)
+ deALLOCATE(M1,M2)
+ deALLOCATE(M1_M0,M1_M0_prime)
+ deALLOCATE(M2_M1)
+ deALLOCATE(d_direct_square)
+ deALLOCATE(d_parallel_square)
+ deALLOCATE(d_perpendicular_square)
+ deALLOCATE(d_perpendicular)
+ deALLOCATE(Ebv_vector)
+ deALLOCATE(Grid_completed_selection)
+ deALLOCATE(age_max_CG,mass_max_CG)
+ deALLOCATE(Ebv_max_CG,Proba_max_CG)
+ deALLOCATE(age_max_d2,mass_max_d2)
+ deALLOCATE(Ebv_max_d2,Proba_max_d2)
+ deALLOCATE(k,counting)
+ deALLOCATE(OB_size)
+ deALLOCATE(sigma_filter)
+
+
+
+ CALL system('date')
+ WRITE(*,*)' Computation completed ' 
+ stop
+ end program

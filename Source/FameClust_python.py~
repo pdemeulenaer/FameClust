@@ -1,0 +1,599 @@
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# !											    !
+# !											    !
+# !		FameClust 10.1 and Chi Square methods 		 			    !	
+# !		(Finding of Age Mass and Extinction of star Clusters)			    !
+# !		Philippe de Meulenaer, PhD Student in Astrophysics (year three)		    !
+# !		Astronomical Observatory, Vilnius University				    !
+# !											    !
+# !											    !
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# !
+# ! Marie je te confie cela...
+# !
+# ! Last update : 16 November 2015
+
+# This program is the implementation of the FameClust algorithm in python.  
+# Execution: time python FameClust_python.py InputFameClustNEW_PHAT_WFC3_Z00800 1 10 n00
+
+
+
+#----------------------------------------------------------------------------------
+# ROUTINE TO BUILD NODES DIRECTLY IN THE PROGRAMME USING GMM (thus from the npz files)
+#----------------------------------------------------------------------------------
+def GMM_npz2nodes(aa,mm,zz):
+
+	  age, mass, Z, age_indice, mass_indice, Z_indice = Lecture_module.age_mass_Z_December2011(aa,mm,zz)
+
+	  #Open the npz node file   
+	  path_in = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grid_FRS_allZ_Kroupa_NPZ/NPZ_files/{0}/'.format(Z_indice)
+	  node = np.load(path_in+'Clusters_t{0}_M{1}_Z{2}.npz'.format(age_indice,mass_indice,Z_indice))
+	  
+	  #Extract the means, covariances and weights
+	  means       = node['means']
+	  covariances = node['covariances']
+	  weights     = node['weights']
+	  components_number = len(weights)
+
+	  #Build the node using means, covariances and weights
+	  #Here small block to ensure that we build 1000 models per bin
+	  int_weights = np.zeros(10, dtype=int)
+	  for ii in range(0,components_number-1):
+	   int_weights[ii] = int(round(weights[ii]*1000,0))   
+	  if np.sum(int_weights) != 1000: #If more or less than 1000models, remove or add the exceeding/missing models randomly
+	   if np.sum(int_weights) > 1000: sign = -1  #remove some models
+	   if np.sum(int_weights) < 1000: sign = 1   #add some models
+	   excess = abs(1000-np.sum(int_weights))
+	   for ex in range(0,excess):
+	    random_integer = np.random.randint(0,10)
+	    int_weights[random_integer] = int_weights[random_integer] + sign*1
+
+	  #Building of nodes
+	  if components_number ==1:
+	   data = np.random.multivariate_normal(means[0],covariances[0],int_weights)   
+	  if components_number >1:
+	   for ii in range(0,components_number):
+	    if ii==0:
+	     data = np.random.multivariate_normal(means[0,:],covariances[0],int_weights[0])             
+	    if ii>0:
+	     data_new = np.random.multivariate_normal(means[ii,:],covariances[ii],int_weights[ii])             
+	     data = np.vstack((data,data_new)) 
+	     del data_new 
+
+	  #Save the node in ascii node file
+	  data_out = np.zeros((1000,2+29)) #,2+31))
+	  data_out[:,0]  = age
+	  data_out[:,1]  = np.log10(mass)
+	  data_out[:,2:] = data  
+
+	  return data_out
+
+
+#----------------------------------------------------------------------------------
+
+
+
+# PROJECT MAG-LIMIT"
+
+# The idea is:
+# - to detect which filter is a limit of magnitude and not an exact measurement. 
+# - apply the correct cut in the parameter space. For that filter, I will not use its measurement in the derivation of parameters, but instead I will remove all the models that have magnitudes brighter than that measure. In fact it will not be a sharp cut out function (nothing brighter than the measurement, everything after accepted) but rather a gaussian function on the bright side, and 1 (i.e. all models accepted) on the faint side of the given measurement. So it seems really possible to implement this scheme. The sigma of the gaussian will of course be the uncertainty in that filter. 
+
+# Step function (for array)
+def smooth_gaussian_step_array(x, A, mu, sigma):
+    '''This function is a step-like function: the left part of the step is a gaussian function with a given sigma. The right part of the step is 1. The idea is that the clusters models brighter than the mag-limit [mu] will be rejected from the probability computation: their probability computed using the other filters will be damped, multiplied by this step function, so by a factor close to 0. Cluster models fainter than the mag-limit will be kept (their computed proba will be multiplied by 1). The step is not abrupt, but gaussian to the bright (left) side, to take into account the uncertainty of the measurement of the mag-limit. '''
+
+    #Note: that step function takes array x and outputs array y. Maybe I could need the same function for scalars and not arrays.
+    y = np.copy(x)
+    y[x < mu] = A*np.exp(-(x[x < mu]-mu)**2/(2.*sigma**2))
+    y[x>= mu] = A
+    return y
+
+
+# Step function for scalar
+def smooth_gaussian_step_scalar(x, A, mu, sigma):
+    '''This function is a step-like function: the left part of the step is a gaussian function with a given sigma. The right part of the step is 1. The idea is that the clusters models brighter than the mag-limit [mu] will be rejected from the probability computation: their probability computed using the other filters will be damped, multiplied by this step function, so by a factor close to 0. Cluster models fainter than the mag-limit will be kept (their computed proba will be multiplied by 1). The step is not abrupt, but gaussian to the bright (left) side, to take into account the uncertainty of the measurement of the mag-limit. '''
+
+    #Note: that step function takes scalar x and outputs scalar y.
+    if x < mu : A*np.exp(-(x[x < mu]-mu)**2/(2.*sigma**2))
+    if x>= mu : y = A
+    return y
+
+
+
+
+
+
+
+# --------------------------------------
+# Declaration of imported python modules
+# --------------------------------------
+
+import numpy as np
+import numexpr as ne
+import scipy
+import os
+import math
+import time
+import random
+from random import gauss
+from pylab import *
+import sys
+import Lecture_module  # (Module located in /home/philippe/Desktop/Discrete_models_comparaison_jtao)
+
+# ------------------------
+# Declaration of functions
+# ------------------------
+
+def dereddening(M1,A_lambda_filters_selected,Rv,Ebv):
+ M2 = M1 - A_lambda_filters_selected * Rv*Ebv
+ return M2
+
+def reddening(M1,A_lambda_filters_selected,Rv,Ebv):
+ M2 = ne.evaluate("M1 + A_lambda_filters_selected * Rv*Ebv")
+ return M2
+
+
+ne.set_num_threads(ne.detect_number_of_cores())
+
+# -------------------------
+# Loading of the input file
+# -------------------------
+print
+print 80*'-'
+print
+print 50*'-'
+print 'Loading of InputFile'
+print 50*'-'
+print
+
+
+InputFile_Name = sys.argv[1] # The name of input file is given during execution of the script
+number_begin = int(sys.argv[2]) -1 #Python number order
+number_end = int(sys.argv[3])   -1 #Python number order 
+Z_indice_selected = sys.argv[4]
+
+
+#Determination of the metallicity in the different needed formats: Z, [M/H] and zz (index)
+Z_selected, zz = Lecture_module.Zindex_to_Z_and_zz(Z_indice_selected)
+print Z_indice_selected, Z_selected, zz
+
+
+
+
+InputFile = open('/home/philippe/Desktop/Discrete_models_comparaison_jtao/SC_Parameters_20/'+InputFile_Name).readlines()
+my_list = []
+for line in InputFile:
+    item = str.split(line)
+    if item[0][0] != '#':
+     my_list.append(item[0])
+
+number_filters = int(my_list[0])
+print 'Number of filters selected:                 ', number_filters
+
+filters_selected_index = np.arange(number_filters) 	#integer array containing the indexes of the selected filters 
+for ii in range(0,number_filters):
+ filters_selected_index[ii] = int(my_list[ii+1])
+print 'Indexes of filters selected:               ', filters_selected_index
+
+Distance_modulus_host_galaxy = my_list[number_filters+1]
+print 'Distance modulus of the host galaxy:        ', Distance_modulus_host_galaxy
+app_or_abs = int(my_list[number_filters+2])
+print 'Apparent mags [1], Absolute mags [2]:       ', app_or_abs
+file_observed_clusters = my_list[number_filters+3]
+print 'Input file of the observed clusters:        '
+print '    ',file_observed_clusters
+number_cluster_observed = int(my_list[number_filters+4])
+print 'Number of observed clusters:                ',  number_cluster_observed	#[obsolete]
+choice_extinction = int(my_list[number_filters+5])
+print 'Cluster(s) extincted [1], not extincted [2]:', choice_extinction
+choice_extinction_law = int(my_list[number_filters+6])
+print 'Extinction law of MW [1], of LMC [2]:       ', choice_extinction_law
+path_file_out_cluster = my_list[number_filters+7]
+print 'Path of output files for derived parameters:' 
+print '    ',path_file_out_cluster
+print
+print 50*'-'
+print 'InputFile loaded'
+print 50*'-'
+print
+#raw_input()
+
+
+
+# -----------------------------------------------------------------------------------------
+#Loading of the A_lambda (extinction parameters) for the filters selected in the input file
+# -----------------------------------------------------------------------------------------
+print
+print 50*'-'
+print 'Loading of the A_lambda (extinction parameters)'
+print 50*'-'
+print
+
+sigma_filter             = np.zeros((number_cluster_observed,number_filters))
+sigma_filter_inverse     = np.zeros((number_cluster_observed,number_filters))
+
+# lambda, lambda_f_MW, lambda_f_LMC, index of filter [1-->52]
+filters_A_lambda = np.genfromtxt('Filters_information.dat',comments='#')
+if choice_extinction_law == 1:	#MW
+ A_lambda_filters_selected = filters_A_lambda[filters_selected_index-1,1]
+ Rv = 3.1
+if choice_extinction_law == 2:	#LMC
+ A_lambda_filters_selected = filters_A_lambda[filters_selected_index-1,2]
+ Rv = 3.4
+sigma_filter[:,0:number_filters] = filters_A_lambda[filters_selected_index-1,4]
+print A_lambda_filters_selected
+print
+print 50*'-'
+print 'A_lambda loaded'
+print 50*'-'
+print
+del filters_A_lambda
+
+sum_sigma_inverse        = np.zeros(number_cluster_observed) 
+sum_sigma_inverse_square = np.zeros(number_cluster_observed) 
+for ff in range(0,number_filters):
+ print ff+1,A_lambda_filters_selected[ff],sigma_filter[0,ff]
+ sigma_filter_inverse[:,ff] = 1./sigma_filter[:,ff]
+ sum_sigma_inverse_square[:] = sum_sigma_inverse_square[:] + sigma_filter_inverse[:,ff]
+
+sum_sigma_inverse[:] = sum_sigma_inverse_square[:]**0.5
+#print sum_sigma_inverse[0]
+#raw_input()
+
+
+# -----------------------------------------------------------------------------------------
+#Loading of the observations
+# -----------------------------------------------------------------------------------------
+print
+print 50*'-'
+print 'Loading of the observation'
+print 50*'-'
+print
+#file: file_observed_clusters
+#print path_file_out_cluster+file_observed_clusters
+data_input = np.genfromtxt(path_file_out_cluster+file_observed_clusters, comments='#')
+M1_input = data_input[:,filters_selected_index+4]
+print 'M1: ', M1_input
+#print 'M1[0:number_filters]: ', M1[0:number_filters]
+
+#Array containing the MagLim data
+M1_input_MagLim = data_input[:,5+52:5+52+number_filters] #reading the l_MAG columns
+#print M1_input_MagLim, np.shape(M1_input_MagLim)
+
+del data_input
+print 50*'-'
+print 'Observation loaded'
+print 50*'-'
+print
+#raw_input()
+
+
+
+# ----------------------------------------------
+# Loading of the grid of models (from .npy file)
+# ----------------------------------------------
+print
+print 50*'-'
+print 'Loading of the grid of models (from .npy file)'
+print 50*'-'
+print
+
+
+N_bin_all_nodes = 7171000
+at_least_one_model_in_OB_array = np.zeros((71,101,101))
+GRID_READ = np.zeros((1000,52))
+Grid_completed = np.zeros((N_bin_all_nodes,4+number_filters+2))
+M0          = np.zeros((N_bin_all_nodes,number_filters))
+M0_prime    = np.zeros((N_bin_all_nodes,number_filters))
+M1_M0_prime = np.zeros((N_bin_all_nodes,number_filters))
+k           = np.zeros(N_bin_all_nodes)
+
+file_name_nodes = '/home/philippe/Desktop/Discrete_models_comparaison_jtao/Grids_with_ACS/Grid_FRS_Z{0}_Kroupa_1000models_per_node_with_ACS/'.format(Z_indice_selected)
+
+ii=0
+for aa in range(1,72):    #Loop on the age
+ print aa
+ for mm in range(1,102):  #Loop on the mass
+
+  #OPTION 1: READ DIRECTLY FROM .dat FILES
+  #age, mass, Z_selected, age_indice, mass_indice, Z_indice_selected = Lecture_module.age_mass_Z_December2011(aa,mm,zz)
+  #file_name_nodes_file = file_name_nodes + 'Clusters_t{0}_M{1}_Z{2}'.format(age_indice,mass_indice,Z_indice_selected)
+  #GRID_READ = genfromtxt(file_name_nodes_file,comments='#')
+  ##for ff in range(0,number_filters): 
+  ## Grid_completed[ii:ii+1000,4+ff] = GRID_READ[:,2+filters_selected_index[ff]-1]
+  #Grid_completed[ii:ii+1000,4:4+number_filters] = GRID_READ[:,2+filters_selected_index[0:number_filters]-1]
+  #Grid_completed[ii:ii+1000,0] = GRID_READ[:,0] #log(age)
+  #Grid_completed[ii:ii+1000,1] = GRID_READ[:,1] #log(mass)
+  #Grid_completed[ii:ii+1000,3] = Z_selected     #Z
+
+  #OPTION 2: GENERATE FROM .npz FILES (using GMMs)
+  data_NPZ = GMM_npz2nodes(aa,mm,zz)
+  Grid_completed[ii:ii+1000,0] = data_NPZ[:,0]  #log(age)
+  Grid_completed[ii:ii+1000,1] = data_NPZ[:,1]  #log(mass)
+  Grid_completed[ii:ii+1000,3] = Z_selected     #Z
+  Grid_completed[ii:ii+1000,4:4+number_filters] = data_NPZ[:,2+filters_selected_index[0:number_filters]-1]
+  del data_NPZ
+
+  ii=ii+1000
+  
+del GRID_READ
+
+
+for ff in range(0,number_filters): 
+ M0[:,ff] = Grid_completed[:,4+ff] 
+
+print 'M0, the models: ',M0
+print
+print 50*'-'
+print 'Grid Loaded'
+print 50*'-'
+print
+
+
+
+#Preparation of the histogram bins
+age_histo, age_edges = np.histogram(Grid_completed[0:10,3], bins=71, range=[6.575,10.125], normed=False, density=None)
+age_centers = (age_edges[:-1]+age_edges[1:])/2
+mass_histo, mass_edges = np.histogram(Grid_completed[0:10,3], bins=81, range=[1.975,6.025], normed=False, density=None)
+mass_centers = (mass_edges[:-1]+mass_edges[1:])/2
+Ebv_histo, Ebv_edges = np.histogram(Grid_completed[0:10,3], bins=101, range=[-0.01,2.01], normed=False, density=None)
+Ebv_centers = (Ebv_edges[:-1]+Ebv_edges[1:])/2
+Ebv_centers[0]=0.
+Z_histo, Z_edges = np.histogram(Grid_completed[0:10,3], bins=13, range=[-2.3,0.3], normed=False, density=None)
+Z_centers = (Z_edges[:-1]+Z_edges[1:])/2
+
+
+
+
+
+solution = np.zeros((number_cluster_observed,7))
+sigma_magnitude = 0.05
+#sigma_magnitude = 0.15
+
+
+#Multiprocessing should start HERE. All what is after should be put in a function that processors would call independently
+Proba_max_CG = np.zeros(number_cluster_observed)
+age_max_CG   = np.zeros(number_cluster_observed) 
+mass_max_CG  = np.zeros(number_cluster_observed)
+Ebv_max_CG   = np.zeros(number_cluster_observed)
+OB_size      = np.zeros(number_cluster_observed) 
+
+#Here will start the loop on the 10000 observed clusters!
+for list_cluster in range(number_begin,number_end): #number_cluster_observed):
+	print 'Cluster ', list_cluster+1
+
+ 
+	# ------------------------------------------------------------------------
+	# Reddening of the observation, to obtain the line going through M1 and M2
+	# ------------------------------------------------------------------------
+	#We first take the observation from the list of observed clusters:
+	M1 = M1_input[list_cluster]
+	#print 'M1, the observation: ', M1
+	#We then deredden the observation by a quantity E(B-V)=2, to have the line (M2,M1)
+	M2 = dereddening(M1,A_lambda_filters_selected,Rv,2)
+	#print 'M2, (M1 dereddened of E(B-V)=2): ',M2
+
+	#print 'M2:', M2
+	#print
+
+	# ----------------------------------------------------------
+	# Derivation of the distances d_perpendicular and d_parallel
+	# ----------------------------------------------------------
+
+	sigma_filter_inverse_list = sigma_filter_inverse[list_cluster,:]
+	sum_sigma_inverse_list = sum_sigma_inverse[list_cluster]
+
+	M1_M0 = ne.evaluate("(M1-M0) * sigma_filter_inverse_list / sum_sigma_inverse_list")
+	M2_M1 = ne.evaluate("(M2-M1) * sigma_filter_inverse_list / sum_sigma_inverse_list")
+
+	#print 'M1_M0:', M1_M0
+	#print 
+	#print 'M2_M1:', M2_M1
+
+	d_direct_square = ne.evaluate("M1_M0*M1_M0").sum(axis=1)
+ 	M2_M1_square = ne.evaluate("M2_M1*M2_M1").sum()
+ 	M2_M1_square_inverse = ne.evaluate("M2_M1_square**-1")
+
+	#IF WE WANT THE k FACTOR!!!
+	k[:]=0.
+	for ff in range(0,number_filters):
+	 k[:] = k[:] - M1_M0[:,ff]*M2_M1[ff]
+	k=ne.evaluate("k*M2_M1_square_inverse")
+
+	#print 'k[0]:', k[0]
+	#print 'k[1]:', k[1]
+	#print 'k[-1]:', k[-1]
+	#print 
+
+	d_parallel_square = ne.evaluate("M1_M0*M2_M1").sum(axis=1)
+	d_parallel_square = ne.evaluate("d_parallel_square * d_parallel_square * M2_M1_square_inverse")
+	d_perpendicular_square = ne.evaluate("d_direct_square - d_parallel_square")
+	d_perpendicular = ne.evaluate("d_perpendicular_square**0.5")
+	#d_parallel = ne.evaluate("d_parallel_square**0.5")
+	#d_direct = ne.evaluate("d_direct_square**0.5")
+	#print 'd_perpendicular: ', d_perpendicular_square**0.5
+	#print 'd_parallel: ',      d_parallel_square**0.5
+	#print 'd_direct: ',        d_direct_square**0.5
+
+	Ebv_vector = ne.evaluate("2*(d_parallel_square*M2_M1_square_inverse)**0.5")
+	#Grid_completed[:,2] = Ebv_vector[:]
+	#Grid_completed[:,3+number_filters+1] = d_perpendicular[:]
+	#Grid_completed[:,3+number_filters+2] = d_perpendicular_square[:]**(-1)  #Probability 1/d_perp**2
+
+	#print 'Grid_completed[0,ff]:', Grid_completed[0,:]
+	#print 'Grid_completed[1,ff]:', Grid_completed[1,:]
+	#print 'Grid_completed[-1,ff]:', Grid_completed[-1,:]
+	#print
+
+
+	#print 'Ebv_vector:', Ebv_vector[0:3], Ebv_vector[-3:]
+	#print 'd_perpendicular_square:', d_perpendicular_square[0:3], d_perpendicular_square[-3:]
+
+
+        for ff in range(0,number_filters):  #!Now we want to compute the reddening of the M0 points, to get the M0' ones.
+	 M0_prime[:,ff] = M0[:,ff] + A_lambda_filters_selected[ff] * Rv*Ebv_vector[:]
+
+	#print 'M0_prime[0,ff]:', M0_prime[0,:]
+	#print 'M0_prime[1,ff]:', M0_prime[1,:]
+	#print 'M0_prime[-1,ff]:', M0_prime[-1,:]
+	#print
+
+	#!Now we want to get the distances between M0' and the M1 point (i.e. the coordinates of M0' in the system of M1).  
+        for ff in range(0,number_filters):
+	 M1_M0_prime[:,ff] = np.abs(M0_prime[:,ff] - M1[ff])
+
+	#print 'M1_M0_prime[0,ff]:', M1_M0_prime[0,:]
+	#print 'M1_M0_prime[1,ff]:', M1_M0_prime[1,:]
+	#print 'M1_M0_prime[-1,ff]:', M1_M0_prime[-1,:]
+	#print
+
+	#print M1_M0_prime[0:3,0], d_perpendicular[0:3]
+	#raw_input()
+
+
+
+	# -----------------------------
+	# Selection of models in the OB
+	# -----------------------------
+	#Traditional OB
+	#selection = ne.evaluate("d_perpendicular < 3*sigma_magnitude")
+	counting_list = 0
+	OB_size[list_cluster] = 3
+	sigma_factor = 3	#!Indicates the size of the OB, in sigma units
+	in_box = np.zeros(N_bin_all_nodes)
+
+	continuer_selection=1
+	while(continuer_selection==1):
+
+	 for ii in range(0,N_bin_all_nodes):
+	  in_box[ii]=0 #!1
+	 
+	  #!HERE PUT THE K FACTOR SELECTION,TO EXCLUDE MODELS OUT OF E(B-V)=[0,1], out of [0,k_max]
+	  if (k[ii] >= 0. and k[ii]<0.5): in_box[ii]=1  #!We accept ALL the models with extinction between 0 an 1
+
+	  if k[ii] < 0: #then	!In that case we look if M0 ITSELF is in OB
+	   for ff in range(0,number_filters):
+	    if abs(M1_M0[ii,ff])<sigma_factor*sigma_filter[list_cluster,ff] : #then		!General case
+	     in_box[ii]=1
+	    else:
+	     in_box[ii]=0
+	     break
+
+	  if in_box[ii]==1: counting_list = counting_list + 1
+
+	 if counting_list > 1000: #!We take no more than 1000 models to build the probability (true?)
+	  continuer_selection=0
+	  break
+	 elif sigma_factor >= 6:  #!We do not explore further than 6 sigmas from observation
+	  continuer_selection=0
+	  break
+	 else:
+	  sigma_factor = sigma_factor + 1
+	  OB_size[list_cluster] = OB_size[list_cluster] + 1
+
+
+	#selection = ne.evaluate("d_perpendicular < 1e7*sigma_magnitude") #To take all the clusters
+	selection = ne.evaluate("in_box == 1")
+        flag = OB_size[list_cluster]
+
+	counting         = len(d_perpendicular[selection])
+	counting_inverse = len(d_perpendicular[selection])**(-1)
+	zeros_array = np.zeros(counting)
+
+	print ' #OB = ', counting, counting_list, '; OB = ',  OB_size[list_cluster], ' sigmas'
+	print
+
+	Grid_completed_selection = np.zeros((counting,4+number_filters+2+number_filters))
+	Grid_completed_selection[:,:3+number_filters+2+1] = Grid_completed[selection,:]
+	#Grid_completed_selection[:,2] = Ebv_vector[selection]
+	Grid_completed_selection[:,2] = np.maximum( np.sign(k[selection])*Ebv_vector[selection] , zeros_array)
+	Grid_completed_selection[:,3+number_filters+1] = d_perpendicular_square[selection]
+	Grid_completed_selection[:,3+number_filters+2] = d_perpendicular_square[selection]**(-1)
+	Grid_completed_selection[:,3+number_filters+2+1:3+number_filters+2+number_filters+1] = M1_M0_prime[selection,0:number_filters]   #CHECK!!
+
+
+	#If we want to save the models OB for each observed cluster (big data)
+	#np.save(path_file_out_cluster+"Clusters_OB_{0}_Z{1}.npy".format(list_cluster+1,Z_indice_selected),Grid_completed_selection,fmt='%7.3f')
+	#np.savetxt(path_file_out_cluster+"Clusters_OB_{0}_Z{1}.dat".format(list_cluster+1,Z_indice_selected),Grid_completed_selection,fmt='%7.3f')
+
+
+	# ------------------------------------
+	# Building the probabilitieS 1D
+	# ------------------------------------
+	#age_histo, age_edges = np.histogram(Grid_completed_selection[:,0], bins=71, range=[6.575,10.125], normed=False, weights=Grid_completed_selection[:,3+number_filters+2], density=None)
+	#index_max_age = np.argmax(age_histo)
+	#age_max = age_centers[index_max_age]
+	#age_max_height = age_histo[index_max_age]
+
+	#mass_histo, mass_edges = np.histogram(Grid_completed_selection[:,1], bins=81, range=[1.975,6.025], normed=False, weights=Grid_completed_selection[:,3+number_filters+2], density=None)
+	#index_max_mass = np.argmax(mass_histo)
+	#mass_max = mass_centers[index_max_mass] 
+	#mass_max_height = mass_histo[index_max_mass]	
+
+	#Ebv_histo, Ebv_edges = np.histogram(Grid_completed_selection[:,2], bins=101, range=[-0.01,2.01], normed=False, weights=Grid_completed_selection[:,3+number_filters+2], density=None)
+	#index_max_Ebv = np.argmax(Ebv_histo)
+	#Ebv_max = Ebv_centers[index_max_Ebv] 	
+	#Ebv_max_height = Ebv_histo[index_max_Ebv]
+
+	#Z_histo, Z_edges = np.histogram(Grid_completed_selection[:,3], bins=13, range=[-2.3,0.3], normed=False, weights=Grid_completed_selection[:,3+number_filters+2], density=None)
+	#index_max_Z = np.argmax(Z_histo)
+	#Z_max = Z_centers[index_max_Z] 
+	#Z_max_height = Z_histo[index_max_Z]
+
+	#solution[list_cluster,0:8] = age_max, mass_max, Ebv_max, Z_max, age_max_height, mass_max_height, Ebv_max_height, Z_max_height
+
+
+	# ------------------------------------
+	# Building the probabilitie 3D
+	# ------------------------------------
+	node_solution = np.zeros((71,101,121,9))
+
+	for ii in range(0,counting):
+	
+	 aa  = int(round(20*(Grid_completed_selection[ii,0] - 6.60))) #+ 1
+	 mm  = int(round(20*(Grid_completed_selection[ii,1] - 2.00))) #+ 1
+	 Ext = int(round(50*np.max(Grid_completed_selection[ii,2],0.)))  #+ 1
+
+	 proba_model=0.
+	 for ff in range(0,number_filters):
+	  proba_model = proba_model + ( Grid_completed_selection[ii,3+number_filters+2+ff+1] * sigma_filter_inverse[list_cluster,ff] )**2	#!General case
+
+	 node_solution[aa,mm,Ext,0] = node_solution[aa,mm,Ext,0] + exp(-0.5*proba_model) * counting_inverse   #we normalize by the total number of points in the OB
+
+	 if (node_solution[aa,mm,Ext,0] > Proba_max_CG[list_cluster] and Ext < 52): #!ATTENTION: LIMIT OF EXTINCTION HERE!
+	  age_max_CG[list_cluster] = Grid_completed_selection[ii,0]
+	  mass_max_CG[list_cluster] = Grid_completed_selection[ii,1]
+	  Ebv_max_CG[list_cluster] = Grid_completed_selection[ii,2]
+	  Proba_max_CG[list_cluster] = node_solution[aa,mm,Ext,0]
+
+	solution[list_cluster,0:7] = list_cluster+1, age_max_CG[list_cluster], mass_max_CG[list_cluster], Ebv_max_CG[list_cluster], Proba_max_CG[list_cluster], counting, flag
+
+	print 'age, mass, Ebv, P:', age_max_CG[list_cluster], mass_max_CG[list_cluster], Ebv_max_CG[list_cluster], Proba_max_CG[list_cluster]
+
+
+
+print solution[0:20,:]
+#np.savetxt(path_file_out_cluster+"Clusters_Solutions_Z{0}.txt".format(Z_indice_selected),solution,fmt='%10.2f')
+file_out = open("/home/philippe/Desktop/Clusters_Solutions_Z{0}.txt".format(Z_indice_selected),'w')
+print >> file_out,'# ID   age3 mas3 Ebv3  Proba3         count    OB'
+np.savetxt(file_out,solution,fmt='%10.2f')
+file_out.close()
+
+print 'Done!'
+os.system("date")
+print 80*'-'
+
+# -------------------------- 
+# Deallocation of the memory
+# -------------------------- 
+#del grid  
+del M0,M1,M2
+del M1_M0,M2_M1,M2_M1_square_inverse
+del d_direct_square,d_perpendicular, Ebv_vector
+del d_perpendicular_square,d_parallel_square  
+del Grid_completed
+del solution
+
+
+

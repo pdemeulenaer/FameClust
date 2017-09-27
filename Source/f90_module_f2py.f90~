@@ -1,0 +1,139 @@
+module mod
+
+  !Compilation for python: f2py -c -m f90_module_f2py f90_module_f2py.f90 -lblas -llapack (if installed)
+
+  integer :: number_filter
+  integer :: comp_number
+  real*8 :: resultat
+  !real*8, allocatable, dimension(:,:) :: cov_inv 
+  real*8, allocatable :: cov_inv(:,:), x_mu(:), zero_matrix(:)
+  !real*8, allocatable, dimension(:) :: x_mu 
+  !real*8, allocatable, dimension(:) :: zero_matrix
+  !real*8, dimension(5,5) :: cov_inv 
+  !real*8, dimension(5) :: x_mu 
+  !real*8, dimension(5) :: zero_matrix
+  !real*8, dimension(71,71,10,5,5) :: cov_inv_all
+  !real*8 :: cov_inv_all
+  real*8, dimension(101,71,71,10,5) :: x_mu_all
+  real*8, dimension(71,71,10) :: normalization_here_all
+  real*8, dimension(71,71,101) :: proba_node_3D_all
+  integer, dimension(3) :: max_proba_position_gcc
+
+contains
+
+
+  subroutine blas_multiplication_gmm
+    integer :: ii,ll,mm,aa,Ext,kk
+    real*8, dimension(comp_number) :: proba_component
+    real*8 :: Ebv
+
+    allocate(cov_inv(5,5),x_mu(5),zero_matrix(5))
+
+    do mm = 1,71
+     !print*, mm
+     do aa = 1,71
+
+      do Ext = 1,100
+	  Ebv = (Ext-1)*0.01D0
+	  proba_component(:)=0.D0 
+	  do ii = 1,comp_number
+
+	   cov_inv(:,:) = cov_inv_all(aa,mm,ii,:,:)
+	   x_mu(:) = x_mu_all(Ext,aa,mm,ii,:)
+	   zero_matrix(:) = 0.D0 !initial allocation
+
+	   !'T' means transposed (vector before matrix: xt*M; 'N' means normal: M*x)
+	   CALL DGEMV('T', size(cov_inv,1), size(cov_inv,2), 1.D0, cov_inv, size(cov_inv,1), x_mu, 1, 0.D0, zero_matrix, 1)  
+	   resultat = 0.D0
+	   do kk = 1,size(cov_inv,1)
+	    resultat = resultat + zero_matrix(kk)*x_mu(kk)
+	   enddo
+
+	   proba_component(ii) = normalization_here_all(aa,mm,ii)*exp(-0.5*resultat)
+	   proba_node_3d_all(aa,mm,Ext) = proba_node_3d_all(aa,mm,Ext) + proba_component(ii)
+
+	  enddo
+      enddo
+     enddo
+    enddo 
+
+    deallocate(cov_inv,x_mu,zero_matrix)
+
+    !max_proba_gcc = MAXVAL(proba_node_3d_all)
+    max_proba_position_gcc = MAXLOC(proba_node_3d_all)
+    !print*, MAXVAL(proba_node_3d_all), MAXLOC(proba_node_3d_all)
+  end subroutine blas_multiplication_gmm
+     
+
+end module mod
+
+
+
+
+
+!informations in python:
+
+!>>> import moddata
+!>>> print moddata.mod.__doc__
+!i - 'i'-scalar
+!x - 'i'-array(4)
+!a - 'f'-array(2,3)
+!foo1 - Function signature:
+!  foo1()
+!
+!use of subroutine foo1 in python:  (note that we input arrays in f90, and after output them back in python!! Just need to translate them in numpy)
+!
+!>>> moddata.mod.i = 5  
+!>>> moddata.mod.x[:2] = [1,2]
+!>>> moddata.mod.a = [[1,2,3],[4,5,6]]
+!>>> moddata.mod.foo1()                
+! i=           5
+! x=[           1           2           0           0 ]
+! a=[
+! [   1.000000     ,   2.000000     ,   3.000000     ]
+! [   4.000000     ,   5.000000     ,   6.000000     ]
+! ]
+! Setting a(1,2)=a(1,2)+3
+!>>> moddata.mod.a               # a is Fortran-contiguous
+!array([[ 1.,  5.,  3.],
+!       [ 4.,  5.,  6.]],'f')
+
+!for foo2:
+
+!>>> allocarr.mod.foo()  
+! b is not allocated
+!>>> allocarr.mod.b = [[1,2,3],[4,5,6]]         # allocate/initialize b
+!>>> allocarr.mod.foo()
+! b=[
+!   1.000000       2.000000       3.000000    
+!   4.000000       5.000000       6.000000    
+! ]
+!>>> allocarr.mod.b                             # b is Fortran-contiguous
+!array([[ 1.,  2.,  3.],
+!       [ 4.,  5.,  6.]],'f')
+!>>> allocarr.mod.b = [[1,2,3],[4,5,6],[7,8,9]] # reallocate/initialize b
+!>>> allocarr.mod.foo()
+! b=[
+!   1.000000       2.000000       3.000000    
+!   4.000000       5.000000       6.000000    
+!   7.000000       8.000000       9.000000    
+! ]
+!>>> allocarr.mod.b = None                      # deallocate array
+!>>> allocarr.mod.foo()
+! b is not allocated
+
+!note: numpy array in f90 format:
+!a=numpy.array([[1,2],[3,4]],dtype=float,order='FORTRAN')
+
+
+!DGEMM: C=alpha*A*B+beta*C
+![ 0.11 0.12 0.13 ]  [ 1011 1012 ]     [ 367.76 368.12 ]
+![ 0.21 0.22 0.23 ]  [ 1021 1022 ]  =  [ 674.06 674.72 ]
+!                    [ 1031 1032 ]
+!      DOUBLE PRECISION ALPHA, BETA
+!      INTEGER          M, K, N, I, J
+!      PARAMETER        (M=2000, K=200, N=1000)
+!      DOUBLE PRECISION A(M,K), B(K,N), C(M,N)
+
+
+

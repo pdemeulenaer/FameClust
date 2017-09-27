@@ -1,0 +1,35 @@
+
+
+IDEA FOR MAKEFILE TAKEN FROM stackoverflow.com
+You can tell gfortran where your module files (.mod files) are located with the -I compiler flag. In addition, you can tell the compiler where to put compiled modules with the -J compiler flag. See the section "Options for directory search" in the gfortran man page.
+
+I use these to place both my object (.o files) and my module files in the same directory, but in a different directory to all my source files, so I don't clutter up my source directory. For example,
+
+SRC = /path/to/project/src
+OBJ = /path/to/project/obj
+BIN = /path/to/project/bin
+
+gfortran -J$(OBJ) -c $(SRC)/bar.f90 -o $(OBJ)/bar.o
+gfortran -I$(OBJ) -c $(SRC)/foo.f90 -o $(OBJ)/foo.o
+gfortran -o $(BIN)/foo.exe $(OBJ)/foo.o $(OBJ)/bar.o
+
+While the above looks like a lot of effort to type out on the command line, I generally use this idea in my makefiles.
+
+
+time python FameClust_analytical_FAST5.py InputFameClustNEW_WFC3_Z01900_M400_V105 1 10 n00
+
+time ./FameClust_analytical_FAST5.exe InputFameClustNEW_WFC3_Z01900_M400_V105 1 10 n00
+
+gfortran -O3 -march=native -ffast-math -funroll-loops -mcmodel=medium Module_Linear_Algebra.f90 Module_lecture.f90 FameClust_analytical_FAST5.f90 -o FameClust_analytical_FAST5.exe -llapack -lm
+
+
+
+
+
+
+
+816692.750
+
+   816693.062       1450144.38    
+   2235343.25       1631475.50    
+   6826784.00       6330570.00 
