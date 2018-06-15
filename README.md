@@ -55,18 +55,18 @@ Articles based on this method:
 -------------------------------------
 
 * de Meulenaer, P.; Narbutis, D.; Mineikis, T.; Vansevičius, V.	
-  Deriving physical parameters of unresolved star clusters. I. Age, mass, and extinction degeneracies (http://adsabs.harvard.edu/abs/2013A%26A...550A..20D)
+  Deriving physical parameters of unresolved star clusters. I. Age, mass, and extinction degeneracies (http://adsabs.harvard.edu/abs/2013A%26A...550A..20D . PDF here: https://www.aanda.org/articles/aa/pdf/2013/02/aa20674-12.pdf)
 
 * de Meulenaer, P.; Narbutis, D.; Mineikis, T.; Vansevičius, V.	
-  Deriving physical parameters of unresolved star clusters. II. The degeneracies of age, mass, extinction, and metallicity (http://adsabs.harvard.edu/abs/2014A%26A...569A...4D)
+  Deriving physical parameters of unresolved star clusters. II. The degeneracies of age, mass, extinction, and metallicity (http://adsabs.harvard.edu/abs/2014A%26A...569A...4D . PDF here: https://www.aanda.org/articles/aa/pdf/2014/09/aa23988-14.pdf)
 
 * de Meulenaer, P.; Narbutis, D.; Mineikis, T.; Vansevičius, V.	
-  Deriving physical parameters of unresolved star clusters. III. Application to M 31 PHAT clusters (http://adsabs.harvard.edu/abs/2015A%26A...574A..66D)
+  Deriving physical parameters of unresolved star clusters. III. Application to M 31 PHAT clusters (http://adsabs.harvard.edu/abs/2015A%26A...574A..66D . PDF here: https://www.aanda.org/articles/aa/pdf/2015/02/aa25121-14.pdf)
 
 * de Meulenaer, P.; Narbutis, D.; Mineikis, T.; Vansevičius, V.	
-  Deriving physical parameters of unresolved star clusters. IV. The M 33 star cluster system (http://adsabs.harvard.edu/abs/2015A%26A...581A.111D)
+  Deriving physical parameters of unresolved star clusters. IV. The M 33 star cluster system (http://adsabs.harvard.edu/abs/2015A%26A...581A.111D . PDF here: https://www.aanda.org/articles/aa/pdf/2015/09/aa26544-15.pdf)
 
 * de Meulenaer, P.; Stonkutė, R.; Vansevičius, V.	
-  Deriving physical parameters of unresolved star clusters. V. M 31 PHAT star clusters (http://adsabs.harvard.edu/abs/2017A%26A...602A.112D)
+  Deriving physical parameters of unresolved star clusters. V. M 31 PHAT star clusters (http://adsabs.harvard.edu/abs/2017A%26A...602A.112D . PDF not available yet on the A&A website)
 
 
