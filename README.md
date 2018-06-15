@@ -17,7 +17,9 @@ Python 3.5.3 |Anaconda custom (64-bit)| (default, Mar  6 2017, 11:58:13)
 
 
 ==========================
+
 1. CLUSTER GENERATION CODE
+
 ==========================
 
 Launch: python GenGridModels.py 800 400 n00
@@ -31,7 +33,9 @@ Metallicity: solar -> n00 [-2.2=m22,...,-0.2=m02, then solar=n00, then +0.2=p02,
 
 
 ==========================
+
 2. FAMEClust CODE
+
 ==========================
 
 Compilation: gfortran -O3 -march=native -ffast-math -funroll-loops -mcmodel=medium Module_lecture.f90 FameClust_V101_observation.f90 -o FameClust_V101_observation.exe
@@ -44,5 +48,25 @@ where:
 - n00 is the metallicity of the grid used, here solar [-2.2=m22,...,-0.2=m02, then solar=n00, then +0.2=p02, step of 0.2]
 
 The InputFameClustNEW_WFC3_PHAT_ALL_new contains the path of the cluster data to analyse, the model grid, and others. It is important to adapt these paths to your system to make the code work. The grids of models for different metallicities can be given on request (write to me, pdemeulenaer@gmail.com)
+
+
+Articles based on this method:
+
+-------------------------------------
+
+* de Meulenaer, P.; Narbutis, D.; Mineikis, T.; Vansevičius, V.	
+  Deriving physical parameters of unresolved star clusters. I. Age, mass, and extinction degeneracies (http://adsabs.harvard.edu/abs/2013A%26A...550A..20D)
+
+* de Meulenaer, P.; Narbutis, D.; Mineikis, T.; Vansevičius, V.	
+  Deriving physical parameters of unresolved star clusters. II. The degeneracies of age, mass, extinction, and metallicity (http://adsabs.harvard.edu/abs/2014A%26A...569A...4D)
+
+* de Meulenaer, P.; Narbutis, D.; Mineikis, T.; Vansevičius, V.	
+  Deriving physical parameters of unresolved star clusters. III. Application to M 31 PHAT clusters (http://adsabs.harvard.edu/abs/2015A%26A...574A..66D)
+
+* de Meulenaer, P.; Narbutis, D.; Mineikis, T.; Vansevičius, V.	
+  Deriving physical parameters of unresolved star clusters. IV. The M 33 star cluster system (http://adsabs.harvard.edu/abs/2015A%26A...581A.111D)
+
+* de Meulenaer, P.; Stonkutė, R.; Vansevičius, V.	
+  Deriving physical parameters of unresolved star clusters. V. M 31 PHAT star clusters (http://adsabs.harvard.edu/abs/2017A%26A...602A.112D)
 
 
