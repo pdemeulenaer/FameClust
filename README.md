@@ -67,6 +67,6 @@ Articles based on this method:
   Deriving physical parameters of unresolved star clusters. IV. The M 33 star cluster system (http://adsabs.harvard.edu/abs/2015A%26A...581A.111D . PDF here: https://www.aanda.org/articles/aa/pdf/2015/09/aa26544-15.pdf)
 
 * de Meulenaer, P.; Stonkutė, R.; Vansevičius, V.	
-  Deriving physical parameters of unresolved star clusters. V. M 31 PHAT star clusters (http://adsabs.harvard.edu/abs/2017A%26A...602A.112D . PDF not available yet on the A&A website)
+  Deriving physical parameters of unresolved star clusters. V. M 31 PHAT star clusters (http://adsabs.harvard.edu/abs/2017A%26A...602A.112D . PDF here: https://ui.adsabs.harvard.edu/link_gateway/2017A%26A...602A.112D/PUB_PDF)
 
 
