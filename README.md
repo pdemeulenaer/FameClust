@@ -2,7 +2,7 @@
 
 ==============================================================================
 
-         FameClust: Finding Age, Mass, Extinction of star CLUSTers (astrophysical package written in python and Fortran)
+         FameClust: Finding Age, Mass, Extinction of star CLUSTers
 
 ==============================================================================
 
